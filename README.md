@@ -1,71 +1,71 @@
-# Simulation der Wirtschaftlichkeit von Heimspeichern (MiSpeL / § 14a EnWG)
+# Simulation der Wirtschaftlichkeit von Heimspeichern (MiSpeL / § 118 EnWG)
 
-Dieses Repository enthält ein Python-Framework zur Simulation und wirtschaftlichen Optimierung von Heimspeichersystemen unter Berücksichtigung der aktuellen deutschen Gesetzgebung (Stand 2025), insbesondere der Neuregelungen durch das Solarpaket I und EnWG-Novellen.
+Dieses Repository enthält ein Python-Simulationsskript zur Analyse der Profitabilität eines AC-gekoppelten Heimspeichers in Kombination mit einer PV-Anlage.
 
-## Funktionen
+Der Fokus liegt auf der **Marktintegration von Speichern** unter den neuen regulatorischen Rahmenbedingungen in Deutschland (MiSpeL, EnWG-Novelle), die einen Mischbetrieb aus Eigenverbrauchsoptimierung und Arbitrage (Handel mit Netzstrom) wirtschaftlich attraktiv machen.
 
-*   **Optimierung:** Einsatz eines MIP-Solvers (Mixed Integer Programming) via `cvxpy` zur Erstellung optimaler Fahrpläne für Laden und Entladen.
-*   **Dynamische Tarife:** Berücksichtigung von Day-Ahead-Börsenstrompreisen (z.B. Tibber, aWATTar, EXAA).
-*   **§ 14a EnWG (Modul 3):** Abbildung variabler Netzentgelte mit zeitabhängigen Tarifstufen (Niedriglast/Hochlast).
-*   **MiSpeL (§ 118 Abs. 6 EnWG):** Detaillierte Simulation der Netzentgeltbefreiung für Speicherstrom. Das Modell berechnet ex-post die erstattungsfähigen Mengen basierend auf dem physikalischen und regulatorischen Stromfluss (Trennung von Netz- und PV-Strom im Speicher).
-*   **Degradation:** Berücksichtigung von zyklischer Alterung durch Kostenstrafen im Optimierungsmodell.
-*   **Multi-Bucket-Modell:** Virtuelle Trennung des Speicherinhalts in "Graustrom" (Netzbezug für Eigenverbrauch), "Arbitrage-Strom" (Netzbezug für Rückspeisung) und "Grünstrom" (PV).
+## Regulatorischer Hintergrund
 
-## Voraussetzungen
+Die Simulation modelliert die Auswirkungen der Neuregelungen zur Marktintegration von Speichern und Ladepunkten (**MiSpeL**) sowie der Novellierung des **§ 118 Abs. 6 EnWG**.
 
-*   Python 3.8 oder höher
-*   Die folgenden Python-Bibliotheken:
-    *   `pandas`
-    *   `numpy`
-    *   `cvxpy`
-    *   `matplotlib` (für die Visualisierung)
+### Das Problem: "Ausschließlichkeit" (Alte Welt)
+Bisher mussten Betreiber wählen:
+*   **Reiner EE-Speicher:** Nur PV-Strom laden (EEG-Vergütung möglich, aber kein Laden aus dem Netz erlaubt).
+*   **Reiner Netz-Speicher:** Nur Netzstrom laden (Netzentgeltbefreiung möglich, aber keine EEG-Vergütung für PV-Strom).
 
-### Solver Hinweis
-Das Skript ist standardmäßig für den Solver **SCIP** konfiguriert (`solver=cp.SCIP`). Da es sich um ein gemischt-ganzzahliges Problem (MIP) handelt, wird ein entsprechender Solver benötigt. Alternativen wie **CBC**, **GLPK** oder kommerzielle Solver wie **Gurobi** können ebenfalls verwendet werden, erfordern aber ggf. Anpassungen im Code (`problem.solve(solver=...)`) und entsprechende Installationen.
+Ein Mischbetrieb führte oft zum Verlust der Privilegien.
 
-## Installation
+### Die Lösung: Abgrenzungsoption (Neue Welt)
+Durch die neuen Regelungen wird ein Mischbetrieb ermöglicht. Die Strommengen werden nicht mehr physikalisch getrennt, sondern **rechnerisch abgegrenzt** (siehe https://www.bundesnetzagentur.de/DE/Fachthemen/ElektrizitaetundGas/ErneuerbareEnergien/EEG_Aufsicht/MiSpeL/start.html, Fallkonstellation A1 der MiSpeL-Eckpunkte).
 
-1.  Repository klonen:
-    ```bash
-    git clone https://github.com/dein-username/dein-repo-name.git
-    cd dein-repo-name
-    ```
+1.  **Saldierungsfähige Netzeinspeisung:** Es wird rechnerisch ermittelt, welcher Anteil des Stroms im Speicher aus dem Netz stammt. Wird dieser wieder eingespeist (Arbitrage), werden die darauf gezahlten **Umlagen, Stromsteuer und Netzentgelte zurückerstattet** (bzw. saldiert).
+2.  **Anteilige Netzentgeltbefreiung (§ 118 Abs. 6 EnWG):** Die Befreiung von Netzentgelten gilt nun auch anteilig für den wieder eingespeisten Netzstrom. Dies macht Arbitrage-Geschäfte (Laden bei niedrigen Preisen/Niedriglasttarif, Entladen zu Hochpreiszeiten) für Heimspeicher erst interessant.
+3.  **Gewillkürte Vorrangregelung:** Bei Gleichzeitigkeit von Last und Ladung bzw. Einspeisung und Entladung gelten gesetzlich definierte Vorrangregeln, die in der Simulation berücksichtigt werden (z.B. gilt Speicherladung bei gleichzeitigem Netzbezug vorrangig als Netzladung).
 
-2.  Abhängigkeiten installieren:
+---
+
+## Funktionsweise der Simulation
+
+Das Skript nutzt mathematische Optimierung, um den idealen Fahrplan für den Speicher zu berechnen.
+
+### 1. Optimierungsmodell (MIP Solver)
+Es wird ein **Mixed-Integer Programming (MIP)** Ansatz verwendet (via `cvxpy` und `SCIP` Solver). Das Modell entscheidet für jedes 15-Minuten-Intervall:
+*   Soll geladen oder entladen werden? (Binäre Entscheidung zur Vermeidung von gleichzeitigem Laden/Entladen).
+*   Wieviel Strom fließt in welchen "Topf"?
+
+### 2. Das 3-Bucket-Modell
+Um die Kosten und regulatorischen Kategorien korrekt zuzuordnen, unterteilt die Simulation den Speicher virtuell in drei Bereiche ("Buckets"):
+*   🟢 **Green Bucket:** PV-Strom. Kostenlos. Vorrangig für Eigenverbrauch, Überschuss für EEG-Einspeisung.
+*   ⚪ **Grey Load Bucket:** Netzstrom zum vollen Preis (inkl. Abgaben). Bestimmt für den zeitversetzten Eigenverbrauch (z.B. um Hochpreisphasen zu brücken).
+*   🟠 **Grey Arbitrage Bucket:** Netzstrom zu Grenzkosten (Spotpreis + nicht-erstattungsfähige Gebühren). **Darf nur zurück ins Netz entladen werden.**
+
+### 3. Kostenstruktur
+*   **Day-Ahead Preise:** Stündlich variable Börsenstrompreise.
+*   **Variable Netzentgelte (§ 14a EnWG Modul 3):** Zeitabhängige Netzentgelte (Niedriglast-, Standard-, Hochlastfenster).
+*   **Rückerstattung:** Ex-Post-Berechnung der erstattungsfähigen Entgelte gemäß MiSpeL-Formeln.
+
+---
+
+## Installation & Nutzung
+
+### Voraussetzungen
+*   Python 3.x
+*   Solver: **SCIP** (oder ein anderer MIP-fähiger Solver wie Gurobi/CPLEX) muss installiert sein.
+*   Bibliotheken:
     ```bash
     pip install pandas numpy "cvxpy[SCIP]" matplotlib
     ```
 
-## Nutzung
-
-1.  **Daten vorbereiten:**
-    Lege deine Preisdaten (z.B. `Day Ahead...csv`) und PV-Erzeugungsdaten (`...pv_daten...csv`) im Verzeichnis ab. Die Formate müssen den Erwartungen im Skript entsprechen (siehe `load_data` Funktion in `Neu_MIP_solver_EnWG_e8_Deg_Split_Mod3.py`).
-
-2.  **Konfiguration:**
-    Öffne das Hauptskript `Neu_MIP_solver_EnWG_e8_Deg_Split_Mod3.py` und passe die Parameter am Anfang der Datei an:
-    *   Dateipfade (`PRICE_FILE_PATH`, `PV_DATA_FILE_PATH`)
-    *   Batteriegröße (`BATTERY_CAPACITY_KWH`, `BATTERY_POWER_KW`)
-    *   Kostenparameter (Umlagen, Steuern)
-
-3.  **Simulation starten:**
+### Ausführung
+1.  Pfade zu den CSV-Dateien (Strompreise, PV-Daten) im Skript anpassen.
+2.  Simulation starten:
     ```bash
     python Neu_MIP_solver_EnWG_e8_Deg_Split_Mod3.py
     ```
-    Das Skript erstellt eine Log-Datei (`.csv`) und eine Zusammenfassung (`.txt`).
-
-4.  **Ergebnisse visualisieren:**
-    Nutze das Plotting-Skript, um die Fahrpläne grafisch darzustellen:
+3.  Ergebnisse visualisieren:
     ```bash
     python Plot_Simulation_Log.py
     ```
-    *(Stelle sicher, dass der Dateiname im Plot-Skript mit dem Output der Simulation übereinstimmt)*
 
-## Lizenz
-
-Dieses Projekt ist unter der **Mozilla Public License 2.0 (MPL 2.0)** lizenziert. Siehe LICENSE Datei für Details.
-
-Copyright 2025 Lukas Neusius
-
-## Haftungsausschluss
-
-Diese Software dient ausschließlich zu Simulations- und Bildungszwecken. Die Berechnungen stellen keine Finanzberatung dar. Trotz sorgfältiger Programmierung können Fehler enthalten sein. Die Anwendung auf reale wirtschaftliche Entscheidungen erfolgt auf eigene Gefahr.
+## Disclaimer
+Dieses Tool dient der privaten Abschätzung und Modellierung. Die regulatorischen Rahmenbedingungen sind komplex und teilweise noch in Konsultationsphasen. Es wird keine Gewähr für die Richtigkeit der steuerlichen und rechtlichen Berechnungen übernommen.
