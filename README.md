@@ -8,14 +8,14 @@ Der Fokus liegt auf der **Marktintegration von Speichern** unter den neuen regul
 
 Die Simulation modelliert die Auswirkungen der Neuregelungen zur Marktintegration von Speichern und Ladepunkten (**MiSpeL**) sowie der Novellierung des **§ 118 Abs. 6 EnWG**.
 
-### Das Problem: "Ausschließlichkeit" (Alte Welt)
+### Das Problem: "Ausschließlichkeit" (Alte)
 Bisher mussten Betreiber wählen:
 *   **Reiner EE-Speicher:** Nur PV-Strom laden (EEG-Vergütung möglich, aber kein Laden aus dem Netz erlaubt).
 *   **Reiner Netz-Speicher:** Nur Netzstrom laden (Netzentgeltbefreiung möglich, aber keine EEG-Vergütung für PV-Strom).
 
 Ein Mischbetrieb führte oft zum Verlust der Privilegien.
 
-### Die Lösung: Abgrenzungsoption (Neue Welt)
+### Die Lösung: Abgrenzungsoption (Neue)
 Durch die neuen Regelungen wird ein Mischbetrieb ermöglicht. Die Strommengen werden nicht mehr physikalisch getrennt, sondern **rechnerisch abgegrenzt** (siehe https://www.bundesnetzagentur.de/DE/Fachthemen/ElektrizitaetundGas/ErneuerbareEnergien/EEG_Aufsicht/MiSpeL/start.html, Fallkonstellation A1 der MiSpeL-Eckpunkte).
 
 1.  **Saldierungsfähige Netzeinspeisung:** Es wird rechnerisch ermittelt, welcher Anteil des Stroms im Speicher aus dem Netz stammt. Wird dieser wieder eingespeist (Arbitrage), werden die darauf gezahlten **Umlagen, Stromsteuer und Netzentgelte zurückerstattet** (bzw. saldiert).
@@ -57,15 +57,16 @@ Um die Kosten und regulatorischen Kategorien korrekt zuzuordnen, unterteilt die 
     ```
 
 ### Ausführung
-1.  Pfade zu den CSV-Dateien (Strompreise, PV-Daten) im Skript anpassen.
-2.  Simulation starten:
+*   Pfade zu den CSV-Dateien (Strompreise, PV-Daten) im Skript anpassen.
+*   Die Strompreise kann man sich von energy-charts.info herunterladen. Die Simulation arbeitet in 15 Minuten Intervallen. Also muss man auch die neuen 15 minütigen Day-Ahead Preise als Basis nehmen. Da diese erst im Oktober eingeführt wurden, kann man auch die EXAA Daten für die gesamte Zeit davor nehmen. Der Unterschied ist gering und eine Stichprobe von Oktober-Dezember ergab keine signifikanten Unterschiede im Simulationsergebnis.
+*   Die PV Daten stammen vorzugsweise von der eigenen PV-Anlage. Ansonsten kann man sich Daten von PVGIS erzeugen lassen oder man nimmt die PV Ertragsdaten des eigenen Bundeslandes von energy-charts.info und skaliert diese auf einen sinnvollen Jahresertrag. Die Daten aus den Bundesländern sind natürlich sehr viel "glatter" als die Daten einer realen PV-Anlage mit Wolken die plötzlich Schatten erzeugen. Es werden Daten im ISO 8601 Format erwartet.
+*   Simulation starten:
     ```bash
     Simulationsskript.py
     ```
-3.  Ergebnisse visualisieren:
+*   Ergebnisse visualisieren:
     ```bash
     python Plot_Simulation_Log.py
     ```
-
 ## Disclaimer
 Dieses Tool dient der privaten Abschätzung und Modellierung. Die regulatorischen Rahmenbedingungen sind komplex und teilweise noch in Konsultationsphasen. Es wird keine Gewähr für die Richtigkeit der steuerlichen und rechtlichen Berechnungen übernommen.
