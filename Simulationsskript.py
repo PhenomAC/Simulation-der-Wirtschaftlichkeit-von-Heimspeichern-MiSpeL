@@ -8,7 +8,7 @@ Simulation der Profitabilität eines Heimspeichers unter Berücksichtigung von:
 - Dynamischen Stromtarifen (Day-Ahead)
 - Variablen Netzentgelten nach § 14a EnWG (Modul 3)
 - Netzentgeltbefreiung für Speicher nach § 118 Abs. 6 EnWG (MiSpeL)
-- Degradation (zyklisch)
+- Degradation (kalendarisch) per "Badewannenkurve"
 
 Das Modell nutzt einen MIP-Solver (Mixed Integer Programming) via CVXPY.
 """
@@ -614,4 +614,5 @@ Gewinn durch Batteriesystem: {cost_base - cost_net_after_refund:.2f} EUR
                 f.write(summary)
             print(f"Summary gespeichert in: {SUMMARY_EXPORT_FILE}")
             
+
             df_final.to_csv(LOG_EXPORT_FILE, sep=';', decimal=',')
