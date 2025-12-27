@@ -2,7 +2,7 @@
 
 Dieses Repository enthält ein Python-Simulationsskript zur Analyse der Profitabilität eines AC-gekoppelten Heimspeichers in Kombination mit einer PV-Anlage.
 
-Der Fokus liegt auf der **Marktintegration von Speichern** unter den neuen regulatorischen Rahmenbedingungen in Deutschland (MiSpeL, EnWG-Novelle), die einen Mischbetrieb aus Eigenverbrauchsoptimierung und Arbitrage (Handel mit Netzstrom) wirtschaftlich attraktiv machen.
+Der Fokus liegt auf der **Marktintegration von Speichern** unter den neuen regulatorischen Rahmenbedingungen in Deutschland (MiSpeL, EnWG-Novelle), die einen Mischbetrieb aus Eigenverbrauchsoptimierung, optimierter Einspeisung mit Direktvermarktung und Arbitrage (Handel mit Netzstrom) wirtschaftlich attraktiv machen.
 
 ## Regulatorischer Hintergrund
 
