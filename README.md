@@ -3,6 +3,7 @@
 Dieses Repository enthält ein Python-Simulationsskript zur Analyse der Profitabilität eines AC-gekoppelten Heimspeichers in Kombination mit einer PV-Anlage.
 
 Der Fokus liegt auf der **Marktintegration von Speichern** unter den neuen regulatorischen Rahmenbedingungen in Deutschland (MiSpeL, EnWG-Novelle), die einen Mischbetrieb aus Eigenverbrauchsoptimierung, optimierter Einspeisung mit Direktvermarktung und Arbitrage (Handel mit Netzstrom) wirtschaftlich attraktiv machen.
+Aktuell geht die Simulation davon aus, dass für die saldierungsfähige Netzeinspeisung keine weiteren Kosten außer den Day-Ahead-Einkaufskosten und einem kleinen Anteil an festen Beschaffungskosten anfallen. Das ist die optimale Annahme. Bei den Konzessionsabgaben und den diversen Steuern ist die Befreiung aber noch nicht explizit geklärt. Das bedarf noch weiteren Klarstellungen seitens des Gesetzgebers.
 
 ## Regulatorischer Hintergrund
 
