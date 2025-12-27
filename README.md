@@ -60,7 +60,7 @@ Um die Kosten und regulatorischen Kategorien korrekt zuzuordnen, unterteilt die 
 1.  Pfade zu den CSV-Dateien (Strompreise, PV-Daten) im Skript anpassen.
 2.  Simulation starten:
     ```bash
-    python Neu_MIP_solver_EnWG_e8_Deg_Split_Mod3.py
+    Simulationsskript.py
     ```
 3.  Ergebnisse visualisieren:
     ```bash
