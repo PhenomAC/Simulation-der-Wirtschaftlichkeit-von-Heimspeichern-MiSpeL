@@ -9,14 +9,14 @@ Aktuell geht die Simulation davon aus, dass für die saldierungsfähige Netzeins
 
 Die Simulation modelliert die Auswirkungen der Neuregelungen zur Marktintegration von Speichern und Ladepunkten (**MiSpeL**) sowie der Novellierung des **§ 118 Abs. 6 EnWG**.
 
-### Das Problem: "Ausschließlichkeit" (Alte)
+### Das Problem: "Ausschließlichkeit"
 Bisher mussten Betreiber wählen:
 *   **Reiner EE-Speicher:** Nur PV-Strom laden (EEG-Vergütung möglich, aber kein Laden aus dem Netz erlaubt).
 *   **Reiner Netz-Speicher:** Nur Netzstrom laden (Netzentgeltbefreiung möglich, aber keine EEG-Vergütung für PV-Strom).
 
 Ein Mischbetrieb führte oft zum Verlust der Privilegien.
 
-### Die Lösung: Abgrenzungsoption (Neue)
+### Die Lösung: Abgrenzungsoption
 Durch die neuen Regelungen wird ein Mischbetrieb ermöglicht. Die Strommengen werden nicht mehr physikalisch getrennt, sondern **rechnerisch abgegrenzt** (siehe https://www.bundesnetzagentur.de/DE/Fachthemen/ElektrizitaetundGas/ErneuerbareEnergien/EEG_Aufsicht/MiSpeL/start.html, Fallkonstellation A1 der MiSpeL-Eckpunkte).
 
 1.  **Saldierungsfähige Netzeinspeisung:** Es wird rechnerisch ermittelt, welcher Anteil des Stroms im Speicher aus dem Netz stammt. Wird dieser wieder eingespeist (Arbitrage), werden die darauf gezahlten **Umlagen, Stromsteuer und Netzentgelte zurückerstattet** (bzw. saldiert).
