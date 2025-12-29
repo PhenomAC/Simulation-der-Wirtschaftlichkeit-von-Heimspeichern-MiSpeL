@@ -9,12 +9,12 @@ LOG_FILE_PATH = 'simulation_detailed_log_modul3_3Buck_e8deg_OktDezEXAA.csv'
 
 # Technische Parameter (für Visualisierung von Limits/Targets)
 BATTERY_CAPACITY_KWH = 71.7
-SOC_TARGET_PERCENT = 0.40
+SOC_TARGET_PERCENT = 0.47
 
 # Ansichts-Steuerung
 # Wähle hier, welchen Zeitraum du sehen willst.
 # Wenn None, wird die Mitte des Datensatzes gewählt.
-START_DATE_STR = '2025-11-22' # Format: '2024-12-10' oder None
+START_DATE_STR = '2025-04-22' # Format: '2024-12-10' oder None
 VIEW_DAYS = 8         # Anzahl der Tage, die angezeigt werden sollen
 
 def load_simulation_log(filepath):
@@ -174,4 +174,5 @@ def plot_results(df):
 if __name__ == "__main__":
     df_log = load_simulation_log(LOG_FILE_PATH)
     if df_log is not None:
+
         plot_results(df_log)
