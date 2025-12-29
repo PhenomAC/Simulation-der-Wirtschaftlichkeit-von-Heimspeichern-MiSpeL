@@ -46,7 +46,7 @@ TIME_STEP_HOURS = 0.25           # 15 Minuten
 # Feste Bestandteile (ct/kWh)
 LEVIES = 3.50                    # Umlagen (KWKG, Offshore, etc.) - privilegierbar
 ELECTRICITY_TAX = 2.05           # Stromsteuer - privilegierbar
-CONCESSION_FEE_LOW = 0.95        # Konzessionsabgabe Niedriglast (ct/kWh)
+CONCESSION_FEE_LOW = 0.61        # Konzessionsabgabe Niedriglast (ct/kWh)
 CONCESSION_FEE_STD = 1.32        # Konzessionsabgabe Sonst (ct/kWh)
 VAT_RATE = 0.19                  # Mehrwertsteuer (19%)
 
@@ -616,3 +616,4 @@ Gewinn durch Batteriesystem: {cost_base - cost_net_after_refund:.2f} EUR
             
 
             df_final.to_csv(LOG_EXPORT_FILE, sep=';', decimal=',')
+
