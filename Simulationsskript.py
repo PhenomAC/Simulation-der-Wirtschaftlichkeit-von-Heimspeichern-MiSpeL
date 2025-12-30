@@ -25,8 +25,8 @@ PRICE_FILE_PATH = 'Day Ahead Dez24-Dez25.csv'
 PV_DATA_FILE_PATH = 'zusammengefasste_pv_daten_komplett.csv' 
 
 # Ausgabedateien
-LOG_EXPORT_FILE = 'simulation_detailed_log_modul3_3Buck_e8deg_EXAA.csv'
-SUMMARY_EXPORT_FILE = 'simulation_summary_modul3_3Buck_e8deg_EXAA.txt'
+LOG_EXPORT_FILE = 'simulation_detailed_log_modul3_3Buck_e8deg02_EXAA.csv'
+SUMMARY_EXPORT_FILE = 'simulation_summary_modul3_3Buck_e8deg02_EXAA.txt'
 
 # Technische Daten
 BATTERY_CAPACITY_KWH = 71.7
@@ -50,7 +50,7 @@ CONCESSION_FEE_LOW = 0.61        # Konzessionsabgabe Niedriglast (ct/kWh)
 CONCESSION_FEE_STD = 1.32        # Konzessionsabgabe Sonst (ct/kWh)
 VAT_RATE = 0.19                  # Mehrwertsteuer (19%)
 
-FEE_NON_REFUND = 1.7             # Beschaffungskosten / Vertrieb (immer fällig)
+FEE_NON_REFUND = 2             # Beschaffungskosten / Vertrieb (immer fällig)
 
 # Variable Netzentgelte (§ 14a EnWG Modul 3) netto (Zeitabhängig)
 VAR_FEE_LOW = 0.95               # Niedriglasttarifstufe: 00:00 - 07:00
@@ -63,7 +63,7 @@ FIXED_FEED_IN_TARIFF = 0.076      # EUR/kWh Einspeisevergütung
 
 # --- DEGRADATIONS-MODELL ---
 SOC_TARGET = 0.47
-COST_SOC_e8 = 0.3
+COST_SOC_e8 = 0.2
 
 # Simulation
 ANNUAL_CONSUMPTION_TARGET_KWH = 9756.0
@@ -208,7 +208,7 @@ def load_data():
         # Preisvektor: Basis (Spot+NonRefund) + Anteilige Gebühren für Verluste + MwSt auf Verluste
         df_price['Price_Buy_Arb'] = (df_price['DayAhead_EUR_kWh'] + FEE_NON_REFUND / 100.0) + \
                                     (loss_factor * fees_losses) + \
-                                    (loss_factor * val_losses * (1 + VAT_RATE))
+                                    (loss_factor * val_losses * VAT_RATE)
         
         df_price = df_price.drop(columns=['TimestampStr', 'Price_MWh'], errors='ignore')
         
@@ -548,7 +548,7 @@ if __name__ == "__main__":
             # Rückerstattung Umlagen & Stromsteuer: Auf saldierungsfähige Einspeisung + privilegierte Verluste
             # (Gemäß § 118 Abs. 6 EnWG neu i.V.m. § 21 EnFG)
             refund_levies = (refundable_export_kwh + privileged_losses_kwh) * (LEVIES / 100.0)
-            refund_el_tax = (refundable_export_kwh + privileged_losses_kwh) * (ELECTRICITY_TAX / 100.0)
+            refund_el_tax = (refundable_export_kwh) * (ELECTRICITY_TAX / 100.0)
             
             total_refund = refund_grid_fees + refund_conc_fees + refund_levies + refund_el_tax
             
@@ -561,7 +561,15 @@ if __name__ == "__main__":
             # Die MwSt (19%) fällt nur für den tatsächlichen Letztverbrauch an.
             # Da in der Abrechnung die Kosten zunächst brutto (inkl. MwSt) berechnet wurden,
             # muss die MwSt auf den erstatteten Teil (der kein Letztverbrauch ist) herausgerechnet werden.
-            refund_vat = total_refund * VAT_RATE
+            # Dies betrifft sowohl die erstatteten Netzentgelte als auch den Warenwert (Spotpreis) des durchgeleiteten Stroms.
+            
+            # Durchschnittlicher gezahlter Spotpreis für Ladung
+            paid_spot = (df_final['Opt_Grid2Batt_kW'] * df_final['DayAhead_EUR_kWh']).sum() * TIME_STEP_HOURS
+            avg_spot_paid = paid_spot / (df_final['Opt_Grid2Batt_kW'].sum() * TIME_STEP_HOURS) if df_final['Opt_Grid2Batt_kW'].sum() > 0 else 0
+            
+            refund_vat_spot = refundable_export_kwh * avg_spot_paid * VAT_RATE
+            
+            refund_vat = (total_refund * VAT_RATE) + refund_vat_spot
             
             cost_net_after_refund = cost_gross - revenue - total_refund - refund_vat
             
@@ -573,7 +581,7 @@ if __name__ == "__main__":
             cost_base = (imp_no_batt * FIXED_TARIFF_LOAD - exp_no_batt * FIXED_FEED_IN_TARIFF).sum() * TIME_STEP_HOURS
 
             summary = f"""
-=== ERGEBNIS (Modul 3 QP Simulation) ===
+=== ERGEBNIS (Modul 3 MIP Simulation) ===
 Zeitraum: {df_final.index.min()} bis {df_final.index.max()}
 ----------------------------------------
 Kosten ohne Batterie und festem Tarif: {cost_base:.2f} EUR
@@ -614,6 +622,4 @@ Gewinn durch Batteriesystem: {cost_base - cost_net_after_refund:.2f} EUR
                 f.write(summary)
             print(f"Summary gespeichert in: {SUMMARY_EXPORT_FILE}")
             
-
             df_final.to_csv(LOG_EXPORT_FILE, sep=';', decimal=',')
-
