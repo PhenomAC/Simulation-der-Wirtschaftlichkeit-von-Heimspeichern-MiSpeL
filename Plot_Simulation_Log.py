@@ -5,7 +5,7 @@ import numpy as np
 # --- KONFIGURATION ---
 
 # Datei-Parameter
-LOG_FILE_PATH = 'simulation_detailed_log_modul3_3Buck_e8deg_OktDezEXAA.csv'
+LOG_FILE_PATH = 'simulation_detailed_log_modul3_3Buck_e8deg02_EXAA_mwst_MPraemie.csv'
 
 # Technische Parameter (für Visualisierung von Limits/Targets)
 BATTERY_CAPACITY_KWH = 71.7
@@ -14,7 +14,7 @@ SOC_TARGET_PERCENT = 0.47
 # Ansichts-Steuerung
 # Wähle hier, welchen Zeitraum du sehen willst.
 # Wenn None, wird die Mitte des Datensatzes gewählt.
-START_DATE_STR = '2025-04-22' # Format: '2024-12-10' oder None
+START_DATE_STR = '2025-05-30' # Format: '2024-12-10' oder None
 VIEW_DAYS = 8         # Anzahl der Tage, die angezeigt werden sollen
 
 def load_simulation_log(filepath):
@@ -73,11 +73,15 @@ def plot_results(df):
     
     # Preise sind im CSV meist in EUR/kWh -> *100 für Cent
     if 'Price_Buy_Full' in slice_df.columns:
-        ax[0].plot(slice_df.index, slice_df['Price_Buy_Full']*100, label='Preis (Bezug)', color='black', linestyle='--')
+        ax[0].plot(slice_df.index, slice_df['Price_Buy_Full']*100, label='Bezugspreis Letztverbrauch', color='black', linestyle='--')
     if 'Price_Buy_Arb' in slice_df.columns:
-        ax[0].plot(slice_df.index, slice_df['Price_Buy_Arb']*100, label='Arbitragebezug-Tarif (Bezug)', color='green')
+        ax[0].plot(slice_df.index, slice_df['Price_Buy_Arb']*100, label='Arbitragebezug', color='orange')
     if 'DayAhead_EUR_kWh' in slice_df.columns:
-        ax[0].plot(slice_df.index, slice_df['DayAhead_EUR_kWh']*100, label='Spotpreis (Verkauf)', color='red', alpha=0.4)
+        ax[0].plot(slice_df.index, slice_df['DayAhead_EUR_kWh']*100, label='Spotpreis', color='blue', alpha=0.4)
+    if 'Price_Sell_PV' in slice_df.columns:
+        ax[0].plot(slice_df.index, slice_df['Price_Sell_PV']*100, label='PV Verkaufspreis mit Marktprämie', color='green', alpha=0.7)
+    if 'Price_Sell_Arb' in slice_df.columns:
+        ax[0].plot(slice_df.index, slice_df['Price_Sell_Arb']*100, label='Arbitrage Verkaufspreis', color='red', alpha=0.5)
         
     ax[0].legend(loc='upper right', frameon=True)
     ax[0].grid(True, alpha=0.3)
@@ -174,5 +178,4 @@ def plot_results(df):
 if __name__ == "__main__":
     df_log = load_simulation_log(LOG_FILE_PATH)
     if df_log is not None:
-
         plot_results(df_log)
