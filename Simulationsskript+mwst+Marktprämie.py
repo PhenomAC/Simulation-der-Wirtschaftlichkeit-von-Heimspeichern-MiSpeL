@@ -50,7 +50,11 @@ CONCESSION_FEE_LOW = 0.61        # Konzessionsabgabe Niedriglast (ct/kWh)
 CONCESSION_FEE_STD = 1.32        # Konzessionsabgabe Sonst (ct/kWh)
 VAT_RATE = 0.19                  # Mehrwertsteuer (19%)
 
-FEE_NON_REFUND = 2             # Beschaffungskosten / Vertrieb (immer fällig)
+# Gebühren bei LUOX Stromtarif und Direktvermarktung
+FEE_NON_REFUND = 0.42            # Herkunftsnachweise Brutto in ct/kWh (immer fällig)
+FEE_BUY_RATE = 0.07              # Variables prozentuales Entgelt Beschaffung
+FEE_SELL_RATE = 0.03             # Variables prozentuales Entgelt Verkauf
+
 
 # Variable Netzentgelte (§ 14a EnWG Modul 3) netto (Zeitabhängig)
 VAR_FEE_LOW = 0.95               # Niedriglasttarifstufe: 00:00 - 07:00
@@ -59,7 +63,7 @@ VAR_FEE_HIGH = 15.56             # Hochlasttarifstufe: 15:00 - 20:00
 
 # Fixer Tarif Preis und Einspeisevergütung für Basis ohne Speicher
 FIXED_TARIFF_LOAD = 0.24         # EUR/kWh Bezugspreis (inkl. Steuern/Abgaben)
-FIXED_FEED_IN_TARIFF = 0.076      # EUR/kWh Einspeisevergütung
+FIXED_FEED_IN_TARIFF = 0.076     # EUR/kWh Einspeisevergütung; +0.4 = 8 ct/kWh als Basis für Marktprämie bei Direkteinspeisung
 
 # --- DEGRADATIONS-MODELL ---
 SOC_TARGET = 0.47
@@ -184,11 +188,14 @@ def load_data():
         
         # Marktprämie für PV-Strom (ct/kWh -> EUR/kWh)
         market_premiums = {
-            3: 2.57, 4: 4.56, 5: 5.60, 6: 5.67,
-            7: 1.68, 8: 3.77, 9: 3.29, 10: 0.62
+            3: 2.97, 4: 4.96, 5: 6.00, 6: 6.16,
+            7: 2.08, 8: 4.17, 9: 3.69, 10: 1.02
         }
         premiums = np.array([market_premiums.get(m, 0.0) for m in df_price.index.month]) / 100.0
-        df_price['Price_Sell_PV'] = df_price['DayAhead_EUR_kWh'] + premiums
+        df_price['Price_Sell_PV'] = (df_price['DayAhead_EUR_kWh'] + premiums) * (1 - FEE_SELL_RATE)
+
+        # Arbitrage Verkaufspreis mit anteiligen Verkaufsgebühren
+        df_price['Price_Sell_Arb'] = df_price['DayAhead_EUR_kWh'] * (1 - FEE_SELL_RATE)
         
         # --- PREIS VEKTOREN BAUEN ---
         grid_fees, conc_fees = get_variable_fees(df_price.index)
@@ -198,9 +205,9 @@ def load_data():
         # --- PREISVEKTOREN FÜR OPTIMIERUNG ---
         # Voller Bezugspreis (für Optimierung "Greedy" Ansatz, Rückerstattung erfolgt ex-post)
         # Preis = Spot + Netzentgelt + Konzession + Umlagen + Stromsteuer + Beschaffung
-        full_levies = (df_price['Var_Grid_Fee_Cent'] + df_price['Concession_Fee_Cent'] + LEVIES + ELECTRICITY_TAX + FEE_NON_REFUND) / 100.0
+        full_levies = (df_price['Var_Grid_Fee_Cent'] + df_price['Concession_Fee_Cent'] + LEVIES + ELECTRICITY_TAX) / 100.0
         
-        df_price['Price_Buy_Full'] = (df_price['DayAhead_EUR_kWh'] + full_levies) * (1 + VAT_RATE)
+        df_price['Price_Buy_Full'] = (df_price['DayAhead_EUR_kWh'] + full_levies) * (1 + VAT_RATE) + df_price['DayAhead_EUR_kWh'] * FEE_BUY_RATE + FEE_NON_REFUND / 100.0
         
         # Arbitrage-Preis: Spot + NonRefund + Kosten für Verluste (Gebühren + MwSt)
         # Dieser Preis wird vom Solver genutzt, um zu entscheiden, ob sich Arbitrage lohnt.
@@ -213,8 +220,8 @@ def load_data():
         # Preisvektor: Basis (Spot+NonRefund) inkl. MwSt + Anteilige Gebühren für Verluste inkl. MwSt
         # Da MwSt auf Arbitrage gezahlt wird, ist sie im Basispreis enthalten.
         # Für Verluste fallen zusätzlich die Gebühren (Grid, Conc, Tax) an, ebenfalls inkl. MwSt.
-        df_price['Price_Buy_Arb'] = (df_price['DayAhead_EUR_kWh'] + FEE_NON_REFUND / 100.0) * (1 + VAT_RATE) + \
-                                    (loss_factor * fees_losses * (1 + VAT_RATE))
+        df_price['Price_Buy_Arb'] = (df_price['DayAhead_EUR_kWh']) * (1 + VAT_RATE) + \
+                                    (loss_factor * fees_losses * (1 + VAT_RATE)) + df_price['DayAhead_EUR_kWh'] * FEE_BUY_RATE + FEE_NON_REFUND / 100.0
         
         df_price = df_price.drop(columns=['TimestampStr', 'Price_MWh'], errors='ignore')
         
@@ -252,6 +259,7 @@ def load_data():
 
     df['DayAhead_EUR_kWh'] = df['DayAhead_EUR_kWh'].ffill().bfill()
     df['Price_Sell_PV'] = df['Price_Sell_PV'].ffill().bfill()
+    df['Price_Sell_Arb'] = df['Price_Sell_Arb'].ffill().bfill()
     df['Price_Buy_Full'] = df['Price_Buy_Full'].ffill().bfill()
     df['Price_Buy_Arb'] = df['Price_Buy_Arb'].ffill().bfill()
     df['Var_Grid_Fee_Cent'] = df['Var_Grid_Fee_Cent'].ffill().bfill()
@@ -276,7 +284,7 @@ def optimize_window_cvxpy(df_window, initial_soc_grey_load, initial_soc_grey_arb
     
     p_buy_full = df_window['Price_Buy_Full'].values 
     p_buy_arb = df_window['Price_Buy_Arb'].values
-    p_sell = df_window['DayAhead_EUR_kWh'].values   
+    p_sell_arb = df_window['Price_Sell_Arb'].values   
     p_sell_pv = df_window['Price_Sell_PV'].values
     
     pv = df_window['PV_kW'].values
@@ -369,8 +377,8 @@ def optimize_window_cvxpy(df_window, initial_soc_grey_load, initial_soc_grey_arb
         # B. Einnahmen
         # PV und Green Bucket erhalten Marktprämie (Price_Sell_PV)
         cost_terms.append(-(pv2grid[t] + batt2grid_green[t]) * p_sell_pv[t] * TIME_STEP_HOURS)
-        # Grey Arbitrage erhält nur Spotpreis (p_sell)
-        cost_terms.append(-(batt2grid_grey_arb[t]) * p_sell[t] * TIME_STEP_HOURS)
+        # Grey Arbitrage erhält nur Spotpreis mit Gebühr (p_sell_arb)
+        cost_terms.append(-(batt2grid_grey_arb[t]) * p_sell_arb[t] * TIME_STEP_HOURS)
         
         # C. Quadratische SoC Strafe (Zyklen schonen / Mitte halten)
         soc_total = (soc_grey_load[t+1] + soc_grey_arb[t+1] + soc_green[t+1])/BATTERY_CAPACITY_KWH
@@ -431,7 +439,7 @@ def optimize_window_cvxpy(df_window, initial_soc_grey_load, initial_soc_grey_arb
     # Damit die Ex-Post Rechnung stimmt. Der Solver hat mit reduzierten Kosten optimiert, aber die Rechnung ist Brutto.
     c_import = (grid2load.value + grid2batt_load.value + grid2batt_arb.value) * p_buy_full * TIME_STEP_HOURS
     c_export = ((pv2grid.value + batt2grid_green.value) * p_sell_pv + \
-                (batt2grid_grey_arb.value) * p_sell) * TIME_STEP_HOURS
+                (batt2grid_grey_arb.value) * p_sell_arb) * TIME_STEP_HOURS
     
     res['Log_Cost_Import_EUR'] = c_import
     res['Log_Revenue_Export_EUR'] = c_export
