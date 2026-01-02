@@ -25,8 +25,8 @@ PRICE_FILE_PATH = 'Day Ahead Dez24-Dez25.csv'
 PV_DATA_FILE_PATH = 'zusammengefasste_pv_daten_komplett.csv' 
 
 # Ausgabedateien
-LOG_EXPORT_FILE = 'simulation_detailed_log_modul3_3Buck_e8deg02_EXAA_mwst_MPraemie.csv'
-SUMMARY_EXPORT_FILE = 'simulation_summary_modul3_3Buck_e8deg02_EXAA_mwst_MPraemie.txt'
+LOG_EXPORT_FILE = 'simulation_detailed_log_modul3_3Buck_e8deg03_EXAA_mwst_MPraemie.csv'
+SUMMARY_EXPORT_FILE = 'simulation_summary_modul3_3Buck_e8deg03_EXAA_mwst_MPraemie.txt'
 
 # Technische Daten
 BATTERY_CAPACITY_KWH = 71.7
@@ -67,7 +67,7 @@ FIXED_FEED_IN_TARIFF = 0.076     # EUR/kWh Einspeisevergütung; +0.4 = 8 ct/kWh 
 
 # --- DEGRADATIONS-MODELL ---
 SOC_TARGET = 0.47
-COST_SOC_e8 = 0.2
+COST_SOC_e8 = 0.3
 
 # Simulation
 ANNUAL_CONSUMPTION_TARGET_KWH = 9756.0
@@ -405,6 +405,8 @@ def optimize_window_cvxpy(df_window, initial_soc_grey_load, initial_soc_grey_arb
         res['Opt_PV2Batt_kW'] = zero_values
         res['Opt_Batt2Load_kW'] = zero_values
         res['Opt_Batt2Grid_kW'] = zero_values
+        res['Opt_Batt2Grid_Green_kW'] = zero_values
+        res['Opt_Batt2Grid_Grey_Arb_kW'] = zero_values
         res['Opt_SoC_End_Grey_Load'] = np.full(N, initial_soc_grey_load)
         res['Opt_SoC_End_Grey_Arb'] = np.full(N, initial_soc_grey_arb)
         res['Opt_SoC_End_Grey'] = res['Opt_SoC_End_Grey_Load'] + res['Opt_SoC_End_Grey_Arb']
@@ -426,6 +428,8 @@ def optimize_window_cvxpy(df_window, initial_soc_grey_load, initial_soc_grey_arb
     res['Opt_Batt2Load_kW'] = batt2load_grey_load.value + batt2load_green.value
     
     res['Opt_Batt2Grid_kW'] = batt2grid_grey_arb.value + batt2grid_green.value
+    res['Opt_Batt2Grid_Green_kW'] = batt2grid_green.value
+    res['Opt_Batt2Grid_Grey_Arb_kW'] = batt2grid_grey_arb.value
     
     res['Opt_SoC_End_Grey_Load'] = soc_grey_load.value[1:]
     res['Opt_SoC_End_Grey_Arb'] = soc_grey_arb.value[1:]
@@ -584,6 +588,15 @@ if __name__ == "__main__":
             
             cost_net_after_refund = cost_gross - revenue - total_refund - refund_vat
             
+            # --- DETAILS FÜR SUMMARY ---
+            rev_pv_direct = (df_final['Opt_PV2Grid_kW'] * df_final['Price_Sell_PV']).sum() * TIME_STEP_HOURS
+            rev_batt_green = (df_final['Opt_Batt2Grid_Green_kW'] * df_final['Price_Sell_PV']).sum() * TIME_STEP_HOURS
+            rev_batt_arb = (df_final['Opt_Batt2Grid_Grey_Arb_kW'] * df_final['Price_Sell_Arb']).sum() * TIME_STEP_HOURS
+            
+            cost_buy_load_direct = (df_final['Opt_Grid2Load_kW'] * df_final['Price_Buy_Full']).sum() * TIME_STEP_HOURS
+            cost_buy_load_batt = (df_final['Opt_Grid2Batt_Load_kW'] * df_final['Price_Buy_Full']).sum() * TIME_STEP_HOURS
+            cost_buy_arb = (df_final['Opt_Grid2Batt_Arb_kW'] * df_final['Price_Buy_Full']).sum() * TIME_STEP_HOURS
+            
             # Referenz ohne Batterie
             net_load = df_final['Load_kW'] - df_final['PV_kW']
             imp_no_batt = np.maximum(0, net_load)
@@ -598,6 +611,16 @@ Zeitraum: {df_final.index.min()} bis {df_final.index.max()}
 Kosten ohne Batterie und festem Tarif: {cost_base:.2f} EUR
 ----------------------------------------
 Kosten mit Batterie (Brutto vor Erstattung): {cost_gross - revenue:.2f} EUR
+
+Details Einnahmen:
+- PV Direktvermarktung mit Marktprämie: {rev_pv_direct:.2f} EUR; {df_final['Opt_PV2Grid_kW'].sum() * TIME_STEP_HOURS:.2f} kWh
+- Speicher Grün Direktvermarktung mit Marktprämie: {rev_batt_green:.2f} EUR; {df_final['Opt_Batt2Grid_Green_kW'].sum() * TIME_STEP_HOURS:.2f} kWh
+- Arbitrage Erlöse: {rev_batt_arb:.2f} EUR; {df_final['Opt_Batt2Grid_Grey_Arb_kW'].sum() * TIME_STEP_HOURS:.2f} kWh
+
+Details Einkauf (Brutto):
+- Direktverbrauch Netz: {cost_buy_load_direct:.2f} EUR; {df_final['Opt_Grid2Load_kW'].sum() * TIME_STEP_HOURS:.2f} kWh
+- Speicher Beladung (Load-Bucket): {cost_buy_load_batt:.2f} EUR; {df_final['Opt_Grid2Batt_Load_kW'].sum() * TIME_STEP_HOURS:.2f} kWh
+- Speicher Beladung (Arbitrage): {cost_buy_arb:.2f} EUR; {df_final['Opt_Grid2Batt_Arb_kW'].sum() * TIME_STEP_HOURS:.2f} kWh
 
 --- MiSpeL / EnWG § 118 Abrechnung ---
 Gesamtladung Speicher (Z2V): {sum_z2v:.2f} kWh
