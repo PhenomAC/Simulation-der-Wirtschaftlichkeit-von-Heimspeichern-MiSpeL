@@ -21,15 +21,15 @@ import sys
 # --- KONFIGURATION & SIMULATIONSPARAMETER ---
 
 # Dateipfade
-PRICE_FILE_PATH = 'Day Ahead Dez24-Dez25.csv'
+PRICE_FILE_PATH = 'Day Ahead Dez24-Dez25'
 PV_DATA_FILE_PATH = 'zusammengefasste_pv_daten_komplett.csv' 
 
 # Ausgabedateien
-LOG_EXPORT_FILE = 'simulation_detailed_log_modul3_3Buck_e8deg03_EXAA_mwst_MPraemie.csv'
-SUMMARY_EXPORT_FILE = 'simulation_summary_modul3_3Buck_e8deg03_EXAA_mwst_MPraemie.txt'
+LOG_EXPORT_FILE = 'simulation_detailed_log_modul3_3Buck_e8deg05_02_EPEX_mwst_MPraemie_OktDez.csv'
+SUMMARY_EXPORT_FILE = 'simulation_summary_modul3_3Buck_e8deg05_02_EPEX_mwst_MPraemie_OktDez.txt'
 
 # Technische Daten
-BATTERY_CAPACITY_KWH = 71.7
+BATTERY_CAPACITY_KWH = 68.1
 BATTERY_POWER_KW = 20.0           
 
 # Effizienzen (AC-GEKOPPELTES SYSTEM)
@@ -66,8 +66,8 @@ FIXED_TARIFF_LOAD = 0.24         # EUR/kWh Bezugspreis (inkl. Steuern/Abgaben)
 FIXED_FEED_IN_TARIFF = 0.076     # EUR/kWh Einspeisevergütung; +0.4 = 8 ct/kWh als Basis für Marktprämie bei Direkteinspeisung
 
 # --- DEGRADATIONS-MODELL ---
-SOC_TARGET = 0.47
-COST_SOC_e8 = 0.3
+SOC_TARGET = 0.50
+COST_SOC_e8 = 0.2
 
 # Simulation
 ANNUAL_CONSUMPTION_TARGET_KWH = 9756.0
@@ -78,6 +78,24 @@ SIM_START_DATE = '2024-12-26'            # Optional: 'YYYY-MM-DD', z.B. '2025-01
 SIM_END_DATE = '2025-12-27'              # Optional: 'YYYY-MM-DD'
 
 # --- 1. HILFSFUNKTIONEN ---
+
+def get_efficiency_curve(soc_kwh, capacity_kwh):
+    """
+    Berechnet die One-Way Effizienz (AC<->DC) basierend auf dem SoC für Vergleichszwecke.
+    0-18%: Linearer Anstieg 93% -> 96.5%
+    18-95%: Konstant 96.5%
+    95-100%: Linearer Abfall 96.5% -> 93%
+    """
+    soc_p = (soc_kwh / capacity_kwh) * 100.0
+    eff = np.full_like(soc_p, 0.965)
+    
+    mask_low = soc_p < 18.0
+    eff[mask_low] = 0.93 + (soc_p[mask_low] / 18.0) * (0.965 - 0.93)
+    
+    mask_high = soc_p > 95.0
+    eff[mask_high] = 0.965 + ((soc_p[mask_high] - 95.0) / 5.0) * (0.93 - 0.965)
+    
+    return eff
 
 def get_variable_fees(index):
     """
@@ -212,6 +230,9 @@ def load_data():
         # Arbitrage-Preis: Spot + NonRefund + Kosten für Verluste (Gebühren + MwSt)
         # Dieser Preis wird vom Solver genutzt, um zu entscheiden, ob sich Arbitrage lohnt.
         # Verluste (1 - eta^2) gelten als Letztverbrauch -> Volle Abgaben (außer Umlagen) + MwSt
+        # HINWEIS: Wir nutzen hier 1 - eta^2 (Gesamtverlust), da regulatorisch die Differenz aus
+        # Netzbezug (Input) und Netzeinspeisung (Output) als Verbrauch gilt.
+        # Die physikalischen Verluste (weniger Output) werden durch die Constraints abgebildet (weniger Umsatz).
         loss_factor = 1.0 - (AC_EFFICIENCY * AC_EFFICIENCY)
         
         # Gebühren auf Verluste (Grid, Conc, Tax). Umlagen (LEVIES) sind privilegiert.
@@ -596,6 +617,13 @@ if __name__ == "__main__":
             cost_buy_load_direct = (df_final['Opt_Grid2Load_kW'] * df_final['Price_Buy_Full']).sum() * TIME_STEP_HOURS
             cost_buy_load_batt = (df_final['Opt_Grid2Batt_Load_kW'] * df_final['Price_Buy_Full']).sum() * TIME_STEP_HOURS
             cost_buy_arb = (df_final['Opt_Grid2Batt_Arb_kW'] * df_final['Price_Buy_Full']).sum() * TIME_STEP_HOURS
+
+            sum_pv_direct = df_final['Opt_PV2Grid_kW'].sum() * TIME_STEP_HOURS
+            sum_batt_green = df_final['Opt_Batt2Grid_Green_kW'].sum() * TIME_STEP_HOURS
+            sum_batt_arb = df_final['Opt_Batt2Grid_Grey_Arb_kW'].sum() * TIME_STEP_HOURS
+            sum_load_direct = df_final['Opt_Grid2Load_kW'].sum() * TIME_STEP_HOURS
+            sum_load_batt = df_final['Opt_Grid2Batt_Load_kW'].sum() * TIME_STEP_HOURS
+            sum_arb = df_final['Opt_Grid2Batt_Arb_kW'].sum() * TIME_STEP_HOURS
             
             # Referenz ohne Batterie
             net_load = df_final['Load_kW'] - df_final['PV_kW']
@@ -603,6 +631,29 @@ if __name__ == "__main__":
             exp_no_batt = np.maximum(0, -net_load)
             # Hier nehmen wir vereinfacht den fixen Tarif für die Referenz
             cost_base = (imp_no_batt * FIXED_TARIFF_LOAD - exp_no_batt * FIXED_FEED_IN_TARIFF).sum() * TIME_STEP_HOURS
+
+            # --- VERLUST-VERGLEICH (SoC-abhängige Effizienz) ---
+            # Berechnung der Verluste mit realistischerer Effizienzkurve vs. konstanter Solver-Annahme
+            
+            # SoC zu Beginn jedes Zeitschritts (Shift um 1, Fillna mit 0)
+            soc_start_series = df_final['Opt_SoC_End_kWh'].shift(1).fillna(0.0)
+            eff_real_vec = get_efficiency_curve(soc_start_series.values, BATTERY_CAPACITY_KWH)
+            
+            p_in = df_final['Opt_Grid2Batt_kW'] + df_final['Opt_PV2Batt_kW']
+            p_out = df_final['Opt_Batt2Load_kW'] + df_final['Opt_Batt2Grid_kW']
+            
+            # Verluste Real (SoC-abhängig, One-Way Effizienzen)
+            # Laden (AC -> DC): Verlust = Input * (1 - eta)
+            loss_in_real = (p_in * (1.0 - eff_real_vec)).sum() * TIME_STEP_HOURS
+            # Entladen (DC -> AC): Verlust = Output * (1/eta - 1)  [da Output = Stored * eta]
+            loss_out_real = (p_out * (1.0 / eff_real_vec - 1.0)).sum() * TIME_STEP_HOURS
+            total_loss_real = loss_in_real + loss_out_real
+            
+            # Verluste Simulation (Konstant)
+            loss_in_sim = (p_in * (1.0 - AC_EFFICIENCY)).sum() * TIME_STEP_HOURS
+            loss_out_sim = (p_out * (1.0 / AC_EFFICIENCY - 1.0)).sum() * TIME_STEP_HOURS
+            total_loss_sim = loss_in_sim + loss_out_sim
+            diff_loss = total_loss_real - total_loss_sim
 
             summary = f"""
 === ERGEBNIS (Modul 3 MIP Simulation) ===
@@ -613,14 +664,23 @@ Kosten ohne Batterie und festem Tarif: {cost_base:.2f} EUR
 Kosten mit Batterie (Brutto vor Erstattung): {cost_gross - revenue:.2f} EUR
 
 Details Einnahmen:
-- PV Direktvermarktung mit Marktprämie: {rev_pv_direct:.2f} EUR; {df_final['Opt_PV2Grid_kW'].sum() * TIME_STEP_HOURS:.2f} kWh
-- Speicher Grün Direktvermarktung mit Marktprämie: {rev_batt_green:.2f} EUR; {df_final['Opt_Batt2Grid_Green_kW'].sum() * TIME_STEP_HOURS:.2f} kWh
-- Arbitrage Erlöse: {rev_batt_arb:.2f} EUR; {df_final['Opt_Batt2Grid_Grey_Arb_kW'].sum() * TIME_STEP_HOURS:.2f} kWh
+- PV Direktvermarktung mit Marktprämie: {rev_pv_direct:.2f} EUR; {sum_pv_direct:.2f} kWh
+- Speicher Grün Direktvermarktung mit Marktprämie: {rev_batt_green:.2f} EUR; {sum_batt_green:.2f} kWh
+- Arbitrage Reinerlöse: {rev_batt_arb:.2f} EUR; {sum_batt_arb:.2f} kWh
 
 Details Einkauf (Brutto):
-- Direktverbrauch Netz: {cost_buy_load_direct:.2f} EUR; {df_final['Opt_Grid2Load_kW'].sum() * TIME_STEP_HOURS:.2f} kWh
-- Speicher Beladung (Load-Bucket): {cost_buy_load_batt:.2f} EUR; {df_final['Opt_Grid2Batt_Load_kW'].sum() * TIME_STEP_HOURS:.2f} kWh
-- Speicher Beladung (Arbitrage): {cost_buy_arb:.2f} EUR; {df_final['Opt_Grid2Batt_Arb_kW'].sum() * TIME_STEP_HOURS:.2f} kWh
+- Direktverbrauch Netz: {cost_buy_load_direct:.2f} EUR; {sum_load_direct:.2f} kWh
+- Speicher Beladung (Load-Bucket): {cost_buy_load_batt:.2f} EUR; {sum_load_batt:.2f} kWh
+- Speicher Beladung (Arbitrage): {cost_buy_arb:.2f} EUR; {sum_arb:.2f} kWh
+
+Ertrag/Kosten pro kWh aufgetrennt nach Buckets:
+- PV Direktvermarktung mit Marktprämie: {rev_pv_direct/sum_pv_direct:.2f} EUR/kWh
+- Speicher Grün Direktvermarktung mit Marktprämie: {rev_batt_green/sum_batt_green:.2f} EUR/kWh
+- Arbitrage Erlöse inklusive Rückerstattung abzüglich Einkaufskosten: {(rev_batt_arb + total_refund + refund_vat - cost_buy_arb)/sum_batt_arb:.2f} EUR/kWh
+
+- Direktverbrauch Netz: {cost_buy_load_direct/sum_load_direct:.2f} EUR/kWh
+- Speicher Beladung (Load-Bucket): {cost_buy_load_batt/sum_load_batt:.2f} EUR/kWh
+- Speicher Beladung (Arbitrage): {cost_buy_arb/sum_arb:.2f} EUR/kWh
 
 --- MiSpeL / EnWG § 118 Abrechnung ---
 Gesamtladung Speicher (Z2V): {sum_z2v:.2f} kWh
@@ -649,6 +709,11 @@ Summe Rückerstattung: {total_refund + refund_vat:.2f} EUR
 Kosten mit Batterie (Netto nach Erstattung): {cost_net_after_refund:.2f} EUR
 ----------------------------------------
 Gewinn durch Batteriesystem: {cost_base - cost_net_after_refund:.2f} EUR
+
+--- Verlust-Analyse ---
+Verluste Simulation (Konstant {AC_EFFICIENCY*100:.1f}%): {total_loss_sim:.2f} kWh
+Verluste Real-Check (SoC-abhängig 93-96.5%): {total_loss_real:.2f} kWh
+Abweichung: {diff_loss:.2f} kWh
 """
             print(summary)
             
