@@ -2,8 +2,12 @@
 
 Dieses Repository enthält ein Python-Simulationsskript zur Analyse der Profitabilität eines AC-gekoppelten Heimspeichers in Kombination mit einer PV-Anlage.
 
-Der Fokus liegt auf der **Marktintegration von Speichern** unter den neuen regulatorischen Rahmenbedingungen in Deutschland (MiSpeL, EnWG-Novelle), die einen Mischbetrieb aus Eigenverbrauchsoptimierung, optimierter Einspeisung mit Direktvermarktung und Arbitrage (Handel mit Netzstrom) wirtschaftlich attraktiv machen.
-Aktuell geht die Simulation davon aus, dass für die saldierungsfähige Netzeinspeisung keine weiteren Kosten außer den Day-Ahead-Einkaufskosten und einem kleinen Anteil an festen Beschaffungskosten anfallen. Das ist die optimale Annahme. Bei den Konzessionsabgaben und den diversen Steuern ist die Befreiung aber noch nicht explizit geklärt. Das bedarf noch weiteren Klarstellungen seitens des Gesetzgebers.
+Der Fokus liegt auf der **Marktintegration von Stromspeichern und Ladepunkten** unter den neuen regulatorischen Rahmenbedingungen in Deutschland (MiSpeL, EnWG-Novelle), die einen Mischbetrieb aus Eigenverbrauchsoptimierung, optimierter Einspeisung mit Direktvermarktung und Arbitrage (Handel mit Netzstrom) wirtschaftlich attraktiv machen.
+Ich habe mich weitgehend an die veröffentlichten Ziele der Bundesnetzagentur gehalten: 
+https://www.bundesnetzagentur.de/DE/Fachthemen/ElektrizitaetundGas/ErneuerbareEnergien/EEG_Aufsicht/MiSpeL/DL/Workshop-Folien.pdf
+https://www.bundesnetzagentur.de/DE/Fachthemen/ElektrizitaetundGas/ErneuerbareEnergien/EEG_Aufsicht/MiSpeL/start.htm
+
+Zur Umsatzsteuer (USt)/Mehrwertsteuer (MwSt) habe ich keine Informationen gefunden. Deswegen werden in dem Empfohlenen Skript 'Simulationsskript+mwst+Marktprämie.py' die Day Ahead Preise für den Arbitrage Einkauf auch mit den 19 % belastet. Des weiteren fällt noch ein kleiner Anteil an festen Beschaffungskosten an. Das ist vielleicht etwas optimistisch. Bei den Konzessionsabgaben und den Steuern ist die Befreiung noch nicht explizit geklärt. Das bedarf noch weiteren Klarstellungen seitens des Gesetzgebers. 
 
 ## Regulatorischer Hintergrund
 
@@ -17,10 +21,10 @@ Bisher mussten Betreiber wählen:
 Ein Mischbetrieb führte oft zum Verlust der Privilegien.
 
 ### Die Lösung: Abgrenzungsoption
-Durch die neuen Regelungen wird ein Mischbetrieb ermöglicht. Die Strommengen werden nicht mehr physikalisch getrennt, sondern **rechnerisch abgegrenzt** (siehe https://www.bundesnetzagentur.de/DE/Fachthemen/ElektrizitaetundGas/ErneuerbareEnergien/EEG_Aufsicht/MiSpeL/start.html, Fallkonstellation A1 der MiSpeL-Eckpunkte).
+Durch die neuen Regelungen wird ein Mischbetrieb ermöglicht. Die Strommengen werden nicht mehr physikalisch getrennt, sondern **rechnerisch abgegrenzt** (siehe Fallkonstellation A1 der MiSpeL-Eckpunkte).
 
-1.  **Saldierungsfähige Netzeinspeisung:** Es wird rechnerisch ermittelt, welcher Anteil des Stroms im Speicher aus dem Netz stammt. Wird dieser wieder eingespeist (Arbitrage), werden die darauf gezahlten **Umlagen, Stromsteuer und Netzentgelte zurückerstattet** (bzw. saldiert).
-2.  **Anteilige Netzentgeltbefreiung (§ 118 Abs. 6 EnWG):** Die Befreiung von Netzentgelten gilt nun auch anteilig für den wieder eingespeisten Netzstrom. Dies macht Arbitrage-Geschäfte (Laden bei niedrigen Preisen/Niedriglasttarif, Entladen zu Hochpreiszeiten) für Heimspeicher erst interessant.
+1.  **Saldierungsfähige Netzeinspeisung:** Es wird rechnerisch ermittelt, welcher Anteil des Stroms im Speicher aus dem Netz stammt. Wird dieser wieder eingespeist (Arbitrage), werden die darauf gezahlten **Umlagen, Stromsteuer, Netzentgelte und Konzessionsabgaben zurückerstattet**.
+2.  **Anteilige Netzentgeltbefreiung (§ 118 Abs. 6 EnWG):** Die Befreiung von Netzentgelten gilt nun auch anteilig für den wieder eingespeisten Netzstrom. Dies macht Arbitrage-Geschäfte (Laden bei niedrigen Preisen/Niedriglasttarif, Entladen zu Hochpreiszeiten) für Heimspeicher interessant.
 3.  **Gewillkürte Vorrangregelung:** Bei Gleichzeitigkeit von Last und Ladung bzw. Einspeisung und Entladung gelten gesetzlich definierte Vorrangregeln, die in der Simulation berücksichtigt werden (z.B. gilt Speicherladung bei gleichzeitigem Netzbezug vorrangig als Netzladung).
 
 ---
@@ -31,6 +35,7 @@ Das Skript nutzt mathematische Optimierung, um den idealen Fahrplan für den Spe
 
 ### 1. Optimierungsmodell (MIP Solver)
 Es wird ein **Mixed-Integer Programming (MIP)** Ansatz verwendet (via `cvxpy` und `SCIP` Solver). Das Modell entscheidet für jedes 15-Minuten-Intervall:
+*   Das Problem wird durch die eingeführten Strafkosten für die Batteriedegradation nichtlinear. Das kostet zwar Rechenzeit, bildet einen anzustrebenden und schonenden Batteriebetrieb aber besser ab.
 *   Soll geladen oder entladen werden? (Binäre Entscheidung zur Vermeidung von gleichzeitigem Laden/Entladen).
 *   Wieviel Strom fließt in welchen "Topf"?
 
@@ -63,7 +68,7 @@ Um die Kosten und regulatorischen Kategorien korrekt zuzuordnen, unterteilt die 
 *   Die PV Daten stammen vorzugsweise von der eigenen PV-Anlage. Ansonsten kann man sich Daten von PVGIS erzeugen lassen oder man nimmt die PV Ertragsdaten des eigenen Bundeslandes von energy-charts.info und skaliert diese auf einen sinnvollen Jahresertrag. Die Daten aus den Bundesländern sind natürlich sehr viel "glatter" als die Daten einer realen PV-Anlage mit Wolken die plötzlich Schatten erzeugen. Es werden Daten im ISO 8601 Format erwartet.
 *   Simulation starten:
     ```bash
-    Simulationsskript.py
+    Simulationsskript+mwst+Marktprämie.py
     ```
 *   Ergebnisse visualisieren:
     ```bash
