@@ -73,7 +73,7 @@ Um die Kosten und regulatorischen Kategorien korrekt zuzuordnen, unterteilt die 
     ```
 *   Ergebnisse visualisieren:
     ```bash
-    python Plot_Simulation_Log.py
+    Plot_Simulation_Log.py
     ```
 ## Disclaimer
 Dieses Tool dient der privaten Abschätzung und Modellierung. Die regulatorischen Rahmenbedingungen sind komplex und teilweise noch in Konsultationsphasen. Es wird keine Gewähr für die Richtigkeit der steuerlichen und rechtlichen Berechnungen übernommen.
