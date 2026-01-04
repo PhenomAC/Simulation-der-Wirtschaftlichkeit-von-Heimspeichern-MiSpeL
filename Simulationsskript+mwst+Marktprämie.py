@@ -21,12 +21,12 @@ import sys
 # --- KONFIGURATION & SIMULATIONSPARAMETER ---
 
 # Dateipfade
-PRICE_FILE_PATH = 'Day Ahead Dez24-Dez25'
+PRICE_FILE_PATH = 'Day Ahead Dez24-Dez25.csv'
 PV_DATA_FILE_PATH = 'zusammengefasste_pv_daten_komplett.csv' 
 
 # Ausgabedateien
-LOG_EXPORT_FILE = 'simulation_detailed_log_modul3_3Buck_e8deg05_02_EPEX_mwst_MPraemie_OktDez.csv'
-SUMMARY_EXPORT_FILE = 'simulation_summary_modul3_3Buck_e8deg05_02_EPEX_mwst_MPraemie_OktDez.txt'
+LOG_EXPORT_FILE = 'simulation_detailed_log_modul3_3Buck_e8deg05_02_EXAA_mwst_MPraemie.csv'
+SUMMARY_EXPORT_FILE = 'simulation_summary_modul3_3Buck_e8deg05_02_EXAA_mwst_MPraemie.txt'
 
 # Technische Daten
 BATTERY_CAPACITY_KWH = 68.1
