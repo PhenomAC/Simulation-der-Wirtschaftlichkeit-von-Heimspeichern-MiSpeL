@@ -45,7 +45,7 @@ TIME_STEP_HOURS = 0.25           # 15 Minuten
 
 # Feste Bestandteile (ct/kWh)
 LEVIES = 3.50                    # Umlagen (KWKG, Offshore, etc.) - privilegierbar
-ELECTRICITY_TAX = 2.05           # Stromsteuer - privilegierbar
+ELECTRICITY_TAX = 2.05           # Stromsteuer
 CONCESSION_FEE_LOW = 0.61        # Konzessionsabgabe Niedriglast (ct/kWh)
 CONCESSION_FEE_STD = 1.32        # Konzessionsabgabe Sonst (ct/kWh)
 VAT_RATE = 0.19                  # Mehrwertsteuer (19%)
@@ -210,10 +210,10 @@ def load_data():
             7: 2.08, 8: 4.17, 9: 3.69, 10: 1.02
         }
         premiums = np.array([market_premiums.get(m, 0.0) for m in df_price.index.month]) / 100.0
-        df_price['Price_Sell_PV'] = (df_price['DayAhead_EUR_kWh'] + premiums) * (1 - FEE_SELL_RATE)
+        df_price['Price_Sell_PV'] = df_price['DayAhead_EUR_kWh'] + premiums - abs(df_price['DayAhead_EUR_kWh'] + premiums) * FEE_SELL_RATE
 
         # Arbitrage Verkaufspreis mit anteiligen Verkaufsgebühren
-        df_price['Price_Sell_Arb'] = df_price['DayAhead_EUR_kWh'] * (1 - FEE_SELL_RATE)
+        df_price['Price_Sell_Arb'] = df_price['DayAhead_EUR_kWh'] - abs(df_price['DayAhead_EUR_kWh']) * FEE_SELL_RATE
         
         # --- PREIS VEKTOREN BAUEN ---
         grid_fees, conc_fees = get_variable_fees(df_price.index)
@@ -225,7 +225,7 @@ def load_data():
         # Preis = Spot + Netzentgelt + Konzession + Umlagen + Stromsteuer + Beschaffung
         full_levies = (df_price['Var_Grid_Fee_Cent'] + df_price['Concession_Fee_Cent'] + LEVIES + ELECTRICITY_TAX) / 100.0
         
-        df_price['Price_Buy_Full'] = (df_price['DayAhead_EUR_kWh'] + full_levies) * (1 + VAT_RATE) + df_price['DayAhead_EUR_kWh'] * FEE_BUY_RATE + FEE_NON_REFUND / 100.0
+        df_price['Price_Buy_Full'] = (df_price['DayAhead_EUR_kWh'] + full_levies) * (1 + VAT_RATE) + abs(df_price['DayAhead_EUR_kWh']) * FEE_BUY_RATE + FEE_NON_REFUND / 100.0
         
         # Arbitrage-Preis: Spot + NonRefund + Kosten für Verluste (Gebühren + MwSt)
         # Dieser Preis wird vom Solver genutzt, um zu entscheiden, ob sich Arbitrage lohnt.
@@ -242,7 +242,7 @@ def load_data():
         # Da MwSt auf Arbitrage gezahlt wird, ist sie im Basispreis enthalten.
         # Für Verluste fallen zusätzlich die Gebühren (Grid, Conc, Tax) an, ebenfalls inkl. MwSt.
         df_price['Price_Buy_Arb'] = (df_price['DayAhead_EUR_kWh']) * (1 + VAT_RATE) + \
-                                    (loss_factor * fees_losses * (1 + VAT_RATE)) + df_price['DayAhead_EUR_kWh'] * FEE_BUY_RATE + FEE_NON_REFUND / 100.0
+                                    (loss_factor * fees_losses * (1 + VAT_RATE)) + abs(df_price['DayAhead_EUR_kWh']) * FEE_BUY_RATE + FEE_NON_REFUND / 100.0
         
         df_price = df_price.drop(columns=['TimestampStr', 'Price_MWh'], errors='ignore')
         
