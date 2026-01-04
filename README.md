@@ -1,5 +1,7 @@
 # Simulation der Wirtschaftlichkeit von Heimspeichern (MiSpeL / § 118 EnWG)
 
+![Beispielvisualisierung](https://github.com/PhenomAC/Simulation-der-Wirtschaftlichkeit-von-Heimspeichern-MiSpeL/blob/main/Beispielvisualisierung.svg)
+
 Dieses Repository enthält ein Python-Simulationsskript zur Analyse der Profitabilität eines AC-gekoppelten Heimspeichers in Kombination mit einer PV-Anlage.
 
 Der Fokus liegt auf der **Marktintegration von Stromspeichern und Ladepunkten** unter den neuen regulatorischen Rahmenbedingungen in Deutschland (MiSpeL, EnWG-Novelle), die einen Mischbetrieb aus Eigenverbrauchsoptimierung, optimierter Einspeisung mit Direktvermarktung und Arbitrage (Handel mit Netzstrom) wirtschaftlich attraktiv machen.
