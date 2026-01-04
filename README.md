@@ -64,7 +64,8 @@ Um die Kosten und regulatorischen Kategorien korrekt zuzuordnen, unterteilt die 
 
 ### Ausführung
 *   Pfade zu den CSV-Dateien (Strompreise, PV-Daten) im Skript anpassen.
-*   Die Strompreise kann man sich von energy-charts.info herunterladen. Die Simulation arbeitet in 15 Minuten Intervallen. Also muss man auch die neuen 15 minütigen Day-Ahead Preise als Basis nehmen. Da diese erst im Oktober eingeführt wurden, kann man auch die EXAA Daten für die gesamte Zeit davor nehmen. Der Unterschied ist gering und eine Stichprobe von Oktober-Dezember ergab keine signifikanten Unterschiede im Simulationsergebnis.
+*   Die Strompreise kann man sich von energy-charts.info herunterladen. Die Simulation arbeitet in 15 Minuten Intervallen. Also muss man auch die neuen 15 minütigen Day-Ahead Preise als Basis nehmen. Da diese erst im Oktober eingeführt wurden, kann man auch die EXAA Daten für die gesamte Zeit davor nehmen. Der Unterschied ist gering und eine Stichprobe von Oktober-Dezember ergab keine signifikanten Unterschiede im Simulationsergebnis. Der Energieumsatz bei den deutschen EPEX Preisen wird etwas geringer, aber der Profit bleibt stabil. Das ist ja sogar eher wünschenswert.
+*   Werte der KONFIGURATION & SIMULATIONSPARAMETER wie dem Vergleichstromtarif, dem Jahreszielverbrauch für die Lastsimulation, der EEG-Vergütung, der Marktpräme, Netzentgelten usw. sollten an die eigenen Gegebenheiten angepasst werden.
 *   Die PV Daten stammen vorzugsweise von der eigenen PV-Anlage. Ansonsten kann man sich Daten von PVGIS erzeugen lassen oder man nimmt die PV Ertragsdaten des eigenen Bundeslandes von energy-charts.info und skaliert diese auf einen sinnvollen Jahresertrag. Die Daten aus den Bundesländern sind natürlich sehr viel "glatter" als die Daten einer realen PV-Anlage mit Wolken die plötzlich Schatten erzeugen. Es werden Daten im ISO 8601 Format erwartet.
 *   Simulation starten:
     ```bash
