@@ -1,4 +1,4 @@
-# Simulation der Wirtschaftlichkeit von Heimspeichern (MiSpeL / § 118 EnWG)
+# Simulation der Wirtschaftlichkeit von Heimspeichern (MiSpeL / Novellierung des § 118 Abs. 6 EnWG)
 
 ![Beispielvisualisierung](https://github.com/PhenomAC/Simulation-der-Wirtschaftlichkeit-von-Heimspeichern-MiSpeL/blob/main/Beispielvisualisierung.svg)
 
@@ -36,8 +36,7 @@ Durch die neuen Regelungen wird ein Mischbetrieb ermöglicht. Die Strommengen we
 Das Skript nutzt mathematische Optimierung, um den idealen Fahrplan für den Speicher zu berechnen.
 
 ### 1. Optimierungsmodell (MIP Solver)
-Es wird ein **Mixed-Integer Programming (MIP)** Ansatz verwendet (via `cvxpy` und `SCIP` Solver). Das Modell entscheidet für jedes 15-Minuten-Intervall:
-*   Das Problem wird durch die eingeführten Strafkosten für die Batteriedegradation nichtlinear. Das kostet zwar Rechenzeit, bildet einen anzustrebenden und schonenden Batteriebetrieb aber besser ab.
+Es wird ein **Mixed-Integer Programming (MIP)** Ansatz verwendet (via `cvxpy` und `SCIP` Solver), da das Problem durch die eingeführten Strafkosten für die Batteriedegradation nichtlinear ist. Das kostet zwar Rechenzeit, bildet einen anzustrebenden und schonenden Batteriebetrieb aber besser ab. Das Modell entscheidet für jedes 15-Minuten-Intervall:
 *   Soll geladen oder entladen werden? (Binäre Entscheidung zur Vermeidung von gleichzeitigem Laden/Entladen).
 *   Wieviel Strom fließt in welchen "Topf"?
 
@@ -50,7 +49,7 @@ Um die Kosten und regulatorischen Kategorien korrekt zuzuordnen, unterteilt die 
 ### 3. Kostenstruktur
 *   **Day-Ahead Preise:** Stündlich variable Börsenstrompreise.
 *   **Variable Netzentgelte (§ 14a EnWG Modul 3):** Zeitabhängige Netzentgelte (Niedriglast-, Standard-, Hochlastfenster).
-*   **Prozentuale und fixe Gebühren** die bei Direktvermarktung und für Beschaffung mit dynamischem Stromtarif anfallen
+*   **Prozentuale und fixe Gebühren** die bei Direktvermarktung und für Beschaffung mit dynamischem Stromtarif anfallen.
 *   **Rückerstattung:** Ex-Post-Berechnung der erstattungsfähigen Entgelte gemäß MiSpeL-Formeln.
 
 ---
