@@ -36,7 +36,7 @@ Durch die neuen Regelungen wird ein Mischbetrieb ermöglicht. Die Strommengen we
 Das Skript nutzt mathematische Optimierung, um den idealen Fahrplan für den Speicher zu berechnen.
 
 ### 1. Optimierungsmodell (MIP Solver)
-Es wird ein **Mixed-Integer Programming (MIP)** Ansatz verwendet (via `cvxpy` und `SCIP` Solver), da das Problem durch die eingeführten Strafkosten für die Batteriedegradation nichtlinear ist. Das kostet zwar Rechenzeit, bildet einen anzustrebenden und schonenden Batteriebetrieb aber besser ab. Das Modell entscheidet für jedes 15-Minuten-Intervall:
+Es wird ein **Mixed-Integer Programming (MIP)** Ansatz verwendet (via `cvxpy` und `SCIP` Solver). Da das Problem durch die eingeführten Strafkosten für die Batteriedegradation nichtlinear ist, muss der Solver auch damit umgehen können. Das kostet zwar Rechenzeit, bildet einen anzustrebenden und schonenden Batteriebetrieb aber besser ab. Das Modell entscheidet für jedes 15-Minuten-Intervall:
 *   Soll geladen oder entladen werden? (Binäre Entscheidung zur Vermeidung von gleichzeitigem Laden/Entladen).
 *   Wieviel Strom fließt in welchen "Topf"?
 
