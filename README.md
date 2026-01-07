@@ -42,7 +42,7 @@ Es wird ein **Mixed-Integer Programming (MIP)** Ansatz verwendet (via `cvxpy` un
 
 ### 2. Das 3-Bucket-Modell
 Um die Kosten und regulatorischen Kategorien korrekt zuzuordnen, unterteilt die Simulation den Speicher virtuell in drei Bereiche ("Buckets"):
-*   🟢 **Green Bucket:** PV-Strom. Kostenlos. Für Eigenverbrauch, Überschuss für Direktvermarktung inkl. Marktprämie.
+*   🟢 **Green Bucket:** PV-Strom. Kostenlos. Für Eigenverbrauch, Überschuss für Direktvermarktung inkl. jährliche Marktprämie (berechnung der Marktprämie auf Basis des Jahresmarktwertes ist aufgrund der jährlichen MiSpeL Saldierung vorgeschrieben).
 *   ⚪ **Grey Load Bucket:** Netzstrom zum vollen Preis (inkl. Abgaben). Bestimmt für den zeitversetzten Eigenverbrauch (z.B. um Hochpreisphasen zu überbrücken wenn der PV Strom nicht ausreicht).
 *   🟠 **Grey Arbitrage Bucket:** Netzstrom zu Grenzkosten (Spotpreis + MwSt. + nicht-erstattungsfähige Gebühren). **Darf nur zurück ins Netz entladen werden.**
 
