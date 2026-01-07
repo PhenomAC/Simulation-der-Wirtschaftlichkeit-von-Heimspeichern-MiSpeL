@@ -25,15 +25,15 @@ PRICE_FILE_PATH = 'Day Ahead Dez24-Dez25.csv'
 PV_DATA_FILE_PATH = 'zusammengefasste_pv_daten_komplett.csv' 
 
 # Ausgabedateien
-LOG_EXPORT_FILE = 'simulation_detailed_log_modul3_3Buck_e8deg05_02_EXAA_mwst_MPraemie.csv'
-SUMMARY_EXPORT_FILE = 'simulation_summary_modul3_3Buck_e8deg05_02_EXAA_mwst_MPraemie.txt'
+LOG_EXPORT_FILE = 'simulation_detailed_log_e8deg05_02_EXAA_mwst_MPraemie+_96%.csv'
+SUMMARY_EXPORT_FILE = 'simulation_summary_e8deg05_02_EXAA_mwst_MPraemie+_96%.txt'
 
 # Technische Daten
 BATTERY_CAPACITY_KWH = 68.1
 BATTERY_POWER_KW = 20.0           
 
 # Effizienzen (AC-GEKOPPELTES SYSTEM)
-AC_EFFICIENCY = 0.955
+AC_EFFICIENCY = 0.96
 EFF_IN = AC_EFFICIENCY
 EFF_OUT = AC_EFFICIENCY
 
@@ -64,6 +64,19 @@ VAR_FEE_HIGH = 15.56             # Hochlasttarifstufe: 15:00 - 20:00
 # Fixer Tarif Preis und Einspeisevergütung für Basis ohne Speicher
 FIXED_TARIFF_LOAD = 0.24         # EUR/kWh Bezugspreis (inkl. Steuern/Abgaben)
 FIXED_FEED_IN_TARIFF = 0.076     # EUR/kWh Einspeisevergütung; +0.4 = 8 ct/kWh als Basis für Marktprämie bei Direkteinspeisung
+
+# Marktprämie (Jahresmarktwert Solar)
+# Referenzwert: 8.00 ct/kWh; Jahresmarktwert Solar 2025 (Prognose): 4.44 ct/kWh
+# -> Marktprämie: 3.56 ct/kWh (konstant über das Jahr bei Abgrenzungsoption)
+# Wird global definiert, da für Preisvektoren UND Ex-Post-Korrektur benötigt.
+MARKET_PREMIUM_EUR = 0.0356
+
+# --- MISPEL KORREKTUR-PARAMETER ---
+# Da der Solver die "Verdünnung" der Rückerstattung durch den PV-Eigenverbrauch nicht kennt,
+# fügen wir einen kalkulatorischen Kostenaufschlag auf den Arbitrage-Einkauf hinzu.
+# Werte aktualisiert basierend auf Simulation (Share ~68%, SelfCons ~13.5%)
+ESTIMATED_GRID_SHARE = 0.68      # Erwarteter Netzstromanteil
+ESTIMATED_SELF_CONS_SHARE = 0.135 # Erwarteter Anteil des Speicher-Inputs für Eigenverbrauch
 
 # --- DEGRADATIONS-MODELL ---
 SOC_TARGET = 0.50
@@ -205,12 +218,8 @@ def load_data():
         df_price['DayAhead_EUR_kWh'] = df_price['Price_MWh'] / 1000.0
         
         # Marktprämie für PV-Strom (ct/kWh -> EUR/kWh)
-        market_premiums = {
-            3: 2.97, 4: 4.96, 5: 6.00, 6: 6.16,
-            7: 2.08, 8: 4.17, 9: 3.69, 10: 1.02
-        }
-        premiums = np.array([market_premiums.get(m, 0.0) for m in df_price.index.month]) / 100.0
-        df_price['Price_Sell_PV'] = df_price['DayAhead_EUR_kWh'] + premiums - abs(df_price['DayAhead_EUR_kWh'] + premiums) * FEE_SELL_RATE
+        # Nutzung der globalen Konstante MARKET_PREMIUM_EUR
+        df_price['Price_Sell_PV'] = df_price['DayAhead_EUR_kWh'] + MARKET_PREMIUM_EUR - abs(df_price['DayAhead_EUR_kWh'] + MARKET_PREMIUM_EUR) * FEE_SELL_RATE
 
         # Arbitrage Verkaufspreis mit anteiligen Verkaufsgebühren
         df_price['Price_Sell_Arb'] = df_price['DayAhead_EUR_kWh'] - abs(df_price['DayAhead_EUR_kWh']) * FEE_SELL_RATE
@@ -238,12 +247,24 @@ def load_data():
         # Gebühren auf Verluste (Grid, Conc, Tax). Umlagen (LEVIES) sind privilegiert.
         fees_losses = (df_price['Var_Grid_Fee_Cent'] + df_price['Concession_Fee_Cent'] + ELECTRICITY_TAX) / 100.0
         
-        # Preisvektor: Basis (Spot+NonRefund) inkl. MwSt + Anteilige Gebühren für Verluste inkl. MwSt
-        # Da MwSt auf Arbitrage gezahlt wird, ist sie im Basispreis enthalten.
-        # Für Verluste fallen zusätzlich die Gebühren (Grid, Conc, Tax) an, ebenfalls inkl. MwSt.
-        df_price['Price_Buy_Arb'] = (df_price['DayAhead_EUR_kWh']) * (1 + VAT_RATE) + \
-                                    (loss_factor * fees_losses * (1 + VAT_RATE)) + abs(df_price['DayAhead_EUR_kWh']) * FEE_BUY_RATE + FEE_NON_REFUND / 100.0
+        # --- MISPEL KORREKTUR ---
+        # Berechnung des "Schattenpreises" für entgangene Rückerstattungen.
+        # Wir berechnen die volle Rückerstattungsrate pro Zeitschritt:
+        refund_rate_eur = (df_price['Var_Grid_Fee_Cent'] + df_price['Concession_Fee_Cent'] + LEVIES + ELECTRICITY_TAX) / 100.0
         
+        # Der Spread zwischen Rückerstattung und Marktprämie ist das Risiko
+        risk_spread = (refund_rate_eur - MARKET_PREMIUM_EUR).clip(lower=0.0)
+        
+        # Penalty aufschlag
+        mispel_penalty_eur = risk_spread * ESTIMATED_SELF_CONS_SHARE * (1 - ESTIMATED_GRID_SHARE)
+
+        # Preisvektor: Basis (Spot+NonRefund) inkl. MwSt + Anteilige Gebühren für Verluste inkl. MwSt
+        # + MiSpeL Penalty (Schattenkosten)
+        df_price['Price_Buy_Arb'] = (df_price['DayAhead_EUR_kWh']) * (1 + VAT_RATE) + \
+                                    (loss_factor * fees_losses * (1 + VAT_RATE)) + \
+                                    abs(df_price['DayAhead_EUR_kWh']) * FEE_BUY_RATE + FEE_NON_REFUND / 100.0 + \
+                                    mispel_penalty_eur
+
         df_price = df_price.drop(columns=['TimestampStr', 'Price_MWh'], errors='ignore')
         
         # 2. PV DATEN
@@ -296,6 +317,7 @@ def load_data():
         df['Load_kW'] = generate_synthetic_load(df.index, df['PV_kW'].values, target_load)
     
     print(f"Daten bereit. Zeitraum: {df.index.min()} bis {df.index.max()}")
+    print(f"MiSpeL-Korrektur aktiv: Ø Penalty auf Arbitrage-Kauf = {df['Price_Buy_Arb'].mean() - (df['DayAhead_EUR_kWh'].mean()*(1+VAT_RATE)):.4f} EUR/kWh (inkl. Verlustgebühren)")
     return df
 
 # --- 2. OPTIMIERUNG MIT CVXPY (Modul 3 Logic) ---
@@ -564,6 +586,16 @@ if __name__ == "__main__":
             # (13) Privilegierungsfähige Speicherverluste
             privileged_losses_kwh = grid_share * total_losses
             
+            # --- KORREKTUR MARKTPRÄMIE DURCH "VERDÜNNUNG" ---
+            # Wenn der regulatorische Netzstromanteil kleiner ist als der physikalische Arbitrage-Anteil,
+            # wird effektiv "grauer" Strom (Arbitrage) zu "grünem" Strom umdeklariert.
+            # Dieser Anteil erhält zusätzlich zum Spotpreis die Marktprämie.
+            
+            regulatory_green_feedin_kwh = sum_simul_grid_feedin - refundable_export_kwh
+            physical_green_feedin_kwh = df_final['Opt_Batt2Grid_Green_kW'].sum() * TIME_STEP_HOURS
+            delta_green_kwh = max(0, regulatory_green_feedin_kwh - physical_green_feedin_kwh)
+            revenue_correction_mp = delta_green_kwh * MARKET_PREMIUM_EUR
+
             # --- FINANZIELLE RÜCKERSTATTUNG ---
             # Wir berechnen die gezahlten Entgelte auf den Netzbezug für den Speicher
             # und ziehen davon die Rückerstattung ab.
@@ -605,7 +637,7 @@ if __name__ == "__main__":
             # Die MwSt (19%) fällt nur für den tatsächlichen Letztverbrauch an.
             # Da in der Abrechnung die Kosten zunächst brutto (inkl. MwSt) berechnet wurden,
             # muss die MwSt auf den erstatteten Teil (der kein Letztverbrauch ist) herausgerechnet werden.
-            refund_vat = total_refund * VAT_RATE
+            refund_vat = (total_refund) * VAT_RATE
             
             cost_net_after_refund = cost_gross - revenue - total_refund - refund_vat
             
@@ -625,6 +657,9 @@ if __name__ == "__main__":
             sum_load_batt = df_final['Opt_Grid2Batt_Load_kW'].sum() * TIME_STEP_HOURS
             sum_arb = df_final['Opt_Grid2Batt_Arb_kW'].sum() * TIME_STEP_HOURS
             
+            # Gesamtkosten korrigieren um den MP-Bonus
+            cost_net_after_refund -= revenue_correction_mp
+
             # Referenz ohne Batterie
             net_load = df_final['Load_kW'] - df_final['PV_kW']
             imp_no_batt = np.maximum(0, net_load)
@@ -697,6 +732,12 @@ Davon ins Netz (Z1NE n Z2E): {sum_simul_grid_feedin:.2f} kWh
 => Saldierungsfähige Netzeinspeisung: {refundable_export_kwh:.2f} kWh
 => Privilegierte Speicherverluste: {privileged_losses_kwh:.2f} kWh
 
+--- Regulatorischer "Grünstrom-Shift" ---
+Physikalisch "Grüne" Einspeisung: {physical_green_feedin_kwh:.2f} kWh
+Regulatorisch "Grüne" Einspeisung: {regulatory_green_feedin_kwh:.2f} kWh
+-> Menge, die zusätzlich Marktprämie erhält: {delta_green_kwh:.2f} kWh
+=> Zusätzlicher Erlös (Marktprämie auf Shift): {revenue_correction_mp:.2f} EUR
+
 Rückerstattungen:
 - Netzentgelte: {refund_grid_fees:.2f} EUR
 - Konzessionsabgaben: {refund_conc_fees:.2f} EUR
@@ -704,7 +745,7 @@ Rückerstattungen:
 - Stromsteuer: {refund_el_tax:.2f} EUR
 - Korrektur MwSt: {refund_vat:.2f} EUR
 ----------------------------------------
-Summe Rückerstattung: {total_refund + refund_vat:.2f} EUR
+Summe Rückerstattung & Boni: {total_refund + refund_vat + revenue_correction_mp:.2f} EUR
 
 Kosten mit Batterie (Netto nach Erstattung): {cost_net_after_refund:.2f} EUR
 ----------------------------------------
