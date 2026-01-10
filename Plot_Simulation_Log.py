@@ -5,7 +5,7 @@ import numpy as np
 # --- KONFIGURATION ---
 
 # Datei-Parameter
-LOG_FILE_PATH = 'simulation_detailed_log_modul3_3Buck_e8deg05_02_EXAA_mwst_MPraemie.csv'
+LOG_FILE_PATH = 'simulation_detailed_log_e8deg05_02_EXAA_mwst_MPraemieAnn.csv'
 
 # Technische Parameter (für Visualisierung von Limits/Targets)
 BATTERY_CAPACITY_KWH = 68.1
@@ -14,8 +14,8 @@ SOC_TARGET_PERCENT = 0.50
 # Ansichts-Steuerung
 # Wähle hier, welchen Zeitraum du sehen willst.
 # Wenn None, wird die Mitte des Datensatzes gewählt.
-START_DATE_STR = '2025-02-20' # Format: '2024-12-10' oder None
-VIEW_DAYS = 8         # Anzahl der Tage, die angezeigt werden sollen
+START_DATE_STR = '2025-04-26' # Format: '2024-12-10' oder None
+VIEW_DAYS = 3         # Anzahl der Tage, die angezeigt werden sollen
 
 def load_simulation_log(filepath):
     print(f"Lade Log-Datei: {filepath} ...")
@@ -69,19 +69,19 @@ def plot_results(df):
     # SUBPLOT 1: PREISE
     # ---------------------------------------------------------
     ax[0].set_title("Strompreise")
-    ax[0].set_ylabel("Preis [ct/kWh]")
+    ax[0].set_ylabel("Preis in ct/kWh")
     
     # Preise sind im CSV meist in EUR/kWh -> *100 für Cent
     if 'Price_Buy_Full' in slice_df.columns:
-        ax[0].plot(slice_df.index, slice_df['Price_Buy_Full']*100, label='Bezugspreis Letztverbrauch', color='black', linestyle='--')
+        ax[0].plot(slice_df.index, slice_df['Price_Buy_Full']*100, label='Bezugspreis Letztverbrauch', color='tab:orange')
     if 'Price_Buy_Arb' in slice_df.columns:
-        ax[0].plot(slice_df.index, slice_df['Price_Buy_Arb']*100, label='Arbitragebezug', color='orange')
+        ax[0].plot(slice_df.index, slice_df['Price_Buy_Arb']*100, label='Arbitragebezug', color='tab:blue')
     if 'DayAhead_EUR_kWh' in slice_df.columns:
-        ax[0].plot(slice_df.index, slice_df['DayAhead_EUR_kWh']*100, label='Spotpreis', color='blue', alpha=0.4)
+        ax[0].plot(slice_df.index, slice_df['DayAhead_EUR_kWh']*100, label='Spotpreis', color='black', alpha=0.9)
     if 'Price_Sell_PV' in slice_df.columns:
-        ax[0].plot(slice_df.index, slice_df['Price_Sell_PV']*100, label='PV Verkaufspreis mit Marktprämie', color='green', alpha=0.7)
+        ax[0].plot(slice_df.index, slice_df['Price_Sell_PV']*100, label='PV Verkaufspreis mit Marktprämie', color='gold', alpha=0.9)
     if 'Price_Sell_Arb' in slice_df.columns:
-        ax[0].plot(slice_df.index, slice_df['Price_Sell_Arb']*100, label='Arbitrage Verkaufspreis', color='red', alpha=0.5)
+        ax[0].plot(slice_df.index, slice_df['Price_Sell_Arb']*100, label='Arbitrage Verkaufspreis', color='tab:red', alpha=1)
         
     ax[0].legend(loc='upper right', frameon=True)
     ax[0].grid(True, alpha=0.3)
@@ -90,7 +90,7 @@ def plot_results(df):
     # SUBPLOT 2: SOC (State of Charge)
     # ---------------------------------------------------------
     ax[1].set_title(f"Speicher Füllstand (Target SoC: {SOC_TARGET_PERCENT*100:.0f}%)")
-    ax[1].set_ylabel("Energie [kWh]")
+    ax[1].set_ylabel("Energie in kWh")
     
     if 'Opt_SoC_End_kWh' in slice_df.columns:
         # Gesamtkurve
@@ -102,12 +102,12 @@ def plot_results(df):
                             slice_df['Opt_SoC_End_Grey_Load'], 
                             slice_df['Opt_SoC_End_Grey_Arb'], 
                             slice_df['Opt_SoC_End_Green'],
-                            labels=['Grau (Hausnetz)','Orange (Arbitrage)','Grün (PV)'], 
-                            colors=['grey','orange','lightgreen'],
+                            labels=['Grau (Eigenverbrauch)','Blau (Arbitrage)','Grün (PV)'], 
+                            colors=['grey','tab:blue','lightgreen'],
                             alpha=0.6)
     
     # Target Linie und Kapazitätsgrenze
-    ax[1].axhline(y=BATTERY_CAPACITY_KWH * SOC_TARGET_PERCENT, color='orange', linestyle=':', linewidth=2, label='Target SoC')
+    ax[1].axhline(y=BATTERY_CAPACITY_KWH * SOC_TARGET_PERCENT, color='tab:orange', linestyle=':', linewidth=2, label='Target SoC')
     ax[1].axhline(y=BATTERY_CAPACITY_KWH, color='black', linestyle='-', linewidth=0.8)
     
     ax[1].legend(loc='upper left', frameon=True)
@@ -117,11 +117,11 @@ def plot_results(df):
     # SUBPLOT 3: LEISTUNGSBILANZ (Kombiniert)
     # ---------------------------------------------------------
     ax[2].set_title("Leistungsbilanz (Positiv: Erzeugung/Laden | Negativ: Last/Entladen)")
-    ax[2].set_ylabel("Leistung [kW]")
+    ax[2].set_ylabel("Leistung in kW")
     
     # A) LINIEN PLOTS (Hintergrund, glatt)
     if 'PV_kW' in slice_df.columns:
-        ax[2].plot(slice_df.index, slice_df['PV_kW'], label='PV Erzeugung', color='orange', alpha=0.8, linewidth=1.5)
+        ax[2].plot(slice_df.index, slice_df['PV_kW'], label='PV Erzeugung', color='gold', alpha=1, linewidth=1.5)
     if 'Load_kW' in slice_df.columns:
         ax[2].plot(slice_df.index, -slice_df['Load_kW'], label='Hauslast', color='black', alpha=0.8, linewidth=1.5)
     
@@ -130,12 +130,15 @@ def plot_results(df):
     width = 0.01 
     
     # 1. POSITIV: LADEN (PV + Netz)
-    if 'Opt_PV2Batt_kW' in slice_df.columns and 'Opt_Grid2Batt_kW' in slice_df.columns:
+    if 'Opt_PV2Batt_kW' in slice_df.columns and 'Opt_Grid2Batt_Load_kW' in slice_df.columns and 'Opt_Grid2Batt_Arb_kW' in slice_df.columns:
         p2b = slice_df['Opt_PV2Batt_kW']
-        g2b = slice_df['Opt_Grid2Batt_kW']
+        g2bl = slice_df['Opt_Grid2Batt_Load_kW']
+        g2ba = slice_df['Opt_Grid2Batt_Arb_kW']
         
-        ax[2].bar(slice_df.index, p2b, width=width, label='Laden (PV)', color='gold', align='center', alpha=0.7)
-        ax[2].bar(slice_df.index, g2b, bottom=p2b, width=width, label='Laden (Netz)', color='purple', align='center', alpha=0.7)
+        ax[2].bar(slice_df.index, p2b, width=width, label='Laden (PV)', color='lightgreen', align='center', alpha=0.7)
+        ax[2].bar(slice_df.index, g2bl, bottom=p2b, width=width, label='Laden für Eigenverbrauch (Netz)', color='tab:grey', align='center', alpha=0.7)
+        ax[2].bar(slice_df.index, g2ba, bottom=p2b+g2bl, width=width, label='Laden für Arbitrage (Netz)', color='tab:blue', align='center', alpha=0.7)
+
 
     # 2. NEGATIV: ENTLADEN & BYPASS (Gestapelt nach unten)
     # Reihenfolge (von 0 nach unten): Grid2Load -> PV2Load -> Batt2Load -> Batt2Grid -> PV2Grid
@@ -145,31 +148,35 @@ def plot_results(df):
     g2l = -slice_df.get('Opt_Grid2Load_kW', 0)
     pv2l = -slice_df.get('Opt_PV2Load_kW', 0)
     b2l = -slice_df.get('Opt_Batt2Load_kW', 0)
-    b2g = -slice_df.get('Opt_Batt2Grid_kW', 0)
+    b2ga = -slice_df.get('Opt_Batt2Grid_Grey_Arb_kW', 0)
+    b2gg = -slice_df.get('Opt_Batt2Grid_Green_kW', 0)
     pv2g = -slice_df.get('Opt_PV2Grid_kW', 0) # Falls vorhanden
     
     # Stapeln
     # 1. Netzbezug Haus (Grau)
-    ax[2].bar(slice_df.index, g2l, width=width, label='Last (Netz)', color='darkgrey', align='center', alpha=0.7)
+    ax[2].bar(slice_df.index, g2l, width=width, label='Lastdeckung (Netz)', color='tab:orange', align='center', alpha=0.7)
     
-    # 2. PV Direktverbrauch (Orange)
-    ax[2].bar(slice_df.index, pv2l, bottom=g2l, width=width, label='Last (PV)', color='orange', align='center', alpha=0.5)
+    # 2. PV Direktverbrauch (gold)
+    ax[2].bar(slice_df.index, pv2l, bottom=g2l, width=width, label='Lastdeckung (PV)', color='gold', align='center', alpha=0.7)
     
-    # 3. Batterie Entladung Haus (Blau)
-    ax[2].bar(slice_df.index, b2l, bottom=g2l+pv2l, width=width, label='Entladen (Haus)', color='blue', align='center', alpha=0.7)
+    # 3. Batterie Entladung Haus (graugrün)
+    ax[2].bar(slice_df.index, b2l, bottom=g2l+pv2l, width=width, label='Lastdeckung (Batterie PV + Netz)', color='tab:green', align='center', alpha=0.7)
+
+    # 4. Batterie Entladung Arbitrage Bucket (blau)
+    ax[2].bar(slice_df.index, b2ga, bottom=g2l+pv2l+b2l, width=width, label='Entladen Arbitrage', color='tab:blue', align='center', alpha=0.7)
+
+    # 5. Batterie Entladung PV Bucket (grün)
+    ax[2].bar(slice_df.index, b2gg, bottom=g2l+pv2l+b2l+b2ga, width=width, label='Entladen PV/grün (Netz)', color='lightgreen', align='center', alpha=0.7)
     
-    # 4. Batterie Entladung Netz/Arbitrage (Rot)
-    ax[2].bar(slice_df.index, b2g, bottom=g2l+pv2l+b2l, width=width, label='Entladen (Netz)', color='red', align='center', alpha=0.7)
-    
-    # 5. PV Einspeisung (Grün) - optional, falls im CSV
+    # 6. PV Einspeisung (gold) - optional, falls im CSV
     if isinstance(pv2g, pd.Series) and pv2g.sum() < 0:
-         ax[2].bar(slice_df.index, pv2g, bottom=g2l+pv2l+b2l+b2g, width=width, label='Einspeisung (PV)', color='lightgreen', align='center', alpha=0.5)
+         ax[2].bar(slice_df.index, pv2g, bottom=g2l+pv2l+b2l+b2ga+b2gg, width=width, label='PV Einspeisung (Netz)', color='gold', align='center', alpha=0.7)
 
     # Nulllinie
     ax[2].axhline(0, color='black', linewidth=1)
     
     # Legende (2 Spalten)
-    ax[2].legend(loc='lower left', ncol=3, fontsize='small', frameon=True)
+    ax[2].legend(loc='lower left', ncol=2, fontsize='small', frameon=True)
     ax[2].grid(True, alpha=0.3)
 
     plt.tight_layout()
