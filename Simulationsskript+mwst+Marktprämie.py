@@ -25,15 +25,15 @@ PRICE_FILE_PATH = 'Day Ahead Dez24-Dez25.csv'
 PV_DATA_FILE_PATH = 'zusammengefasste_pv_daten_komplett.csv' 
 
 # Ausgabedateien
-LOG_EXPORT_FILE = 'simulation_detailed_log_e8deg05_02_EXAA_mwst_MPraemie+_96%.csv'
-SUMMARY_EXPORT_FILE = 'simulation_summary_e8deg05_02_EXAA_mwst_MPraemie+_96%.txt'
+LOG_EXPORT_FILE = 'simulation_detailed_log_e8deg05_02_EXAA_mwst_MPraemieAnn.csv'
+SUMMARY_EXPORT_FILE = 'simulation_summary_e8deg05_02_EXAA_mwst_MPraemieAnn.txt'
 
 # Technische Daten
 BATTERY_CAPACITY_KWH = 68.1
 BATTERY_POWER_KW = 20.0           
 
 # Effizienzen (AC-GEKOPPELTES SYSTEM)
-AC_EFFICIENCY = 0.96
+AC_EFFICIENCY = 0.955
 EFF_IN = AC_EFFICIENCY
 EFF_OUT = AC_EFFICIENCY
 
