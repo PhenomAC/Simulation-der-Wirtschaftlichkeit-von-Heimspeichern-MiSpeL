@@ -36,21 +36,21 @@ Durch die neuen Regelungen wird ein Mischbetrieb ermöglicht. Die Strommengen we
 Das Skript nutzt mathematische Optimierung, um den idealen Fahrplan für den Speicher zu berechnen.
 
 ### 1. Optimierungsmodell (MIP Solver)
-Es wird ein **Mixed-Integer Programming (MIP)** Ansatz verwendet (via `cvxpy` und `SCIP` Solver). Da das Problem durch die eingeführten Strafkosten für die Batteriedegradation nichtlinear ist, muss der Solver auch damit umgehen können. Das kostet zwar Rechenzeit, bildet einen anzustrebenden und schonenden Batteriebetrieb aber besser ab. Das Modell entscheidet für jedes 15-Minuten-Intervall:
+Es wird ein **Mixed-Integer Programming (MIP)** Ansatz verwendet (via `cvxpy` und `SCIP` Solver). Da das Problem durch die eingeführten Strafkosten für die Batteriedegradation nichtlinear ist, muss der Solver auch damit umgehen können. Das kostet zwar Rechenzeit, bildet einen anzustrebenden und schonenden Batteriebetrieb aber besser ab. Das Modell arbeitet mit einem Rolling Horizon. In Realität werden gegen 14 Uhr die Day-Ahead Marktpreise für die nächsten 34 h veröffentlicht. Der Horizont wird daher mit 34 h angenommen. In Realität kommen Unsicherheiten bei den PV-Erträgen und Verbrauch hinzu. Nach 24 h wird mit den Startwerten aus dem vorherigen Schritt und wieder 34 h Horizont der nächste Schritt ausgeführt. Die Optimierung entscheidet für jedes 15-Minuten-Intervall:
 *   Soll geladen oder entladen werden? (Binäre Entscheidung zur Vermeidung von gleichzeitigem Laden/Entladen).
 *   Wieviel Strom fließt in welchen "Topf"?
 
 ### 2. Das 3-Bucket-Modell
-Um die Kosten und regulatorischen Kategorien korrekt zuzuordnen, unterteilt die Simulation den Speicher virtuell in drei Bereiche ("Buckets"):
+Um die Kosten, Einspeisevergütungen und regulatorischen Kategorien korrekt zuzuordnen, unterteilt die Simulation den Speicher virtuell in drei Bereiche ("Buckets"):
 *   🟢 **Green Bucket:** PV-Strom. Kostenlos. Für Eigenverbrauch, Überschuss für Direktvermarktung inkl. jährliche Marktprämie (berechnung der Marktprämie auf Basis des Jahresmarktwertes ist aufgrund der jährlichen MiSpeL Saldierung vorgeschrieben).
 *   ⚪ **Grey Load Bucket:** Netzstrom zum vollen Preis (inkl. Abgaben). Bestimmt für den zeitversetzten Eigenverbrauch (z.B. um Hochpreisphasen zu überbrücken wenn der PV Strom nicht ausreicht).
 *   🟠 **Grey Arbitrage Bucket:** Netzstrom zu Grenzkosten (Spotpreis + MwSt. + nicht-erstattungsfähige Gebühren). **Darf nur zurück ins Netz entladen werden.**
 
 ### 3. Kostenstruktur
 *   **Day-Ahead Preise:** Stündlich variable Börsenstrompreise.
-*   **Variable Netzentgelte (§ 14a EnWG Modul 3):** Zeitabhängige Netzentgelte (Niedriglast-, Standard-, Hochlastfenster).
+*   **Variable Netzentgelte und Konzessionsabgaben (§ 14a EnWG Modul 3):** Zeitabhängige Netzentgelte (Niedriglast-, Standard-, Hochlastfenster).
 *   **Prozentuale und fixe Gebühren** die bei Direktvermarktung und für Beschaffung mit dynamischem Stromtarif anfallen.
-*   **Rückerstattung:** Ex-Post-Berechnung der erstattungsfähigen Entgelte gemäß MiSpeL-Formeln.
+*   **Rückerstattung:** Ex-Post-Berechnung der erstattungsfähigen Entgelte und Umsätze gemäß MiSpeL-Formeln. Die Simulation muss mit bestimmten Annahmen arbeiten da sie die jährliche Abrechnung nicht vorraussehen kann.
 
 ---
 
